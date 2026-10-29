@@ -22,26 +22,31 @@ app.use(cors());
 // Turn JSON request bodies into a JavaScript object at req.body
 app.use(express.json());
 
-// GET /api/ping - Health check
+// GET api check
 app.get('/api/ping', (req, res) => {
   res.status(200).json({ message: 'Hello World' });
 });
 
-// POST /api/register
-// In:  { firstName, lastName, login, password, email }
-// Out: 201 { message, id, error } | 400 | 409
+// POST api register
+// In format firstName, lastName, login, password, email
+// Out should be 201 in format message, id, error or 400 or 409
 app.post('/api/register', async (req, res) => {
   try {
+    // Trying login
     const { firstName, lastName, login, password, email } = req.body;
+    // If field missing
     if (!login || !password) {
       return res.status(400).json({ error: 'login and password are required' });
     }
+    // If user alr registered
     if (await User.findOne({ login })) {
       return res.status(409).json({ error: 'That login is already taken' });
     }
+    // Succesful user reg
     const hash = await bcrypt.hash(password, 10);
     const user = await User.create({ firstName, lastName, login, email, password: hash });
     res.status(201).json({ message: 'User registered successfully', id: user._id, error: '' });
+    // In case of some error
   } catch (err) {
     if (err.code === 11000) {
       return res.status(409).json({ error: 'That login is already taken' });
