@@ -24,18 +24,39 @@ const userSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      default: '',
+      required: [true, 'Email is required'],
+      unique: true,
+      lowercase: true,
       trim: true
     },
     role: {
       type: String,
       default: 'user',
       trim: true
+    },
+    emailVerified: {
+      type: Boolean,
+      default: false
+    },
+    verifyToken: {
+      type: String,
+      default: null,
+      select: false
+    },
+    resetToken: {
+      type: String,
+      default: null,
+      select: false
+    },
+    resetExpires: {
+      type: Date,
+      default: null
     }
   },
   {
     collection: 'users',
-    versionKey: false
+    versionKey: false,
+    timestamps: true
   }
 );
 
