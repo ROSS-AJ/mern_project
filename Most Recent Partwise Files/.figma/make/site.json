@@ -1,0 +1,10 @@
+{
+  "description": "Convert full-score sheet music PDFs into individual player parts with alignment and instrument controls, ready to export as a single PDF.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
