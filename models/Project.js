@@ -15,7 +15,7 @@ const projectSchema = new mongoose.Schema(
       trim: true
     },
     // Path or URL to the PDF. The file itself is stored elsewhere
-    // (disk, object storage), not in MongoDB.
+    // (disk, object storage), not in MongoDB, handled in browser.
     pdfLocation: {
       type: String,
       default: null,
@@ -35,6 +35,13 @@ const projectSchema = new mongoose.Schema(
     partNames: {
       type: [String],
       default: []
+    },
+    saveFormat: {
+      type: String,
+      enum: ['partwise'],
+      default: 'partwise',
+      trim: true,
+      lowercase: true 
     }
   },
   {
