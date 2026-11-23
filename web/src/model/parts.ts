@@ -1,10 +1,27 @@
 import type { Part } from './types.ts';
 import { uid } from './types.ts';
 
-/** Distinct, readable on white paper, and distinguishable from each other. */
+/**
+ * Player colors: the IBM Carbon categorical palette (the design system that
+ * pairs with IBM Plex). It's built for data with many categories: the order
+ * maximizes the difference between neighbors, every color is readable as a
+ * bar, dot or tint on white, and it was checked for common color-vision
+ * deficiencies. Partwise's own UI colors stay out of this range so a player
+ * color is never confused with a status color.
+ */
 export const PART_COLORS = [
-  '#2563eb', '#dc2626', '#16a34a', '#9333ea', '#ea580c', '#0891b2',
-  '#c026d3', '#65a30d', '#b45309', '#4f46e5', '#e11d48', '#0d9488',
+  '#6929c4', // purple 70
+  '#1192e8', // cyan 50
+  '#005d5d', // teal 70
+  '#9f1853', // magenta 70
+  '#fa4d56', // red 50
+  '#198038', // green 60
+  '#002d9c', // blue 80
+  '#ee538b', // magenta 50
+  '#b28600', // yellow 50
+  '#009d9a', // teal 50
+  '#8a3800', // orange 70
+  '#a56eff', // purple 50
 ];
 
 const GRAND_STAFF = /\b(piano|pno|harp|celesta|cembalo|harpsichord|keyboard|marimba)\b/i;

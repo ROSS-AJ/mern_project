@@ -35,7 +35,7 @@ export function Inspector({ pageIndex, selection, setSelection, setTool, issues,
         <header>
           <span className="eyebrow">Part text · {boxCount}</span>
           <h2>
-            <span className="dot" style={{ background: part?.color ?? '#9ca3af', marginRight: 8 }} />
+            <span className="dot" style={{ background: part?.color ?? 'var(--gray-400)', marginRight: 8 }} />
             {part?.name || 'No part'}
           </h2>
         </header>

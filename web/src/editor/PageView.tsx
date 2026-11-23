@@ -30,7 +30,8 @@ interface Props {
   onNotice: (message: string) => void;
 }
 
-const SHARED_COLOR = '#6d3fc0';
+// Colors come from the stylesheet's tokens, so the page and the panels always match.
+const SHARED_COLOR = 'var(--region)';
 
 interface Drag {
   systemId: Id;
@@ -40,7 +41,6 @@ interface Drag {
   max: number;
 }
 
-const STATUS_COLOR = { auto: '#8a96a6', review: '#a15c00', confirmed: '#2d7a4b' } as const;
 
 export function PageView(props: Props) {
   const { pageIndex, width, selection, tool } = props;
@@ -193,7 +193,7 @@ export function PageView(props: Props) {
 
   const regions = doc.regions.filter((region) => region.page === pageIndex);
   const regionColor = (region: Region) =>
-    region.kind === 'staff' ? partById.get(region.partId ?? '')?.color ?? '#6b7280' : SHARED_COLOR;
+    region.kind === 'staff' ? partById.get(region.partId ?? '')?.color ?? 'var(--text-tertiary)' : SHARED_COLOR;
   const selectedSystems = new Set(selection.systemIds);
 
   return (
@@ -229,7 +229,7 @@ export function PageView(props: Props) {
                   <button
                     key={staff.id}
                     className={`part-tag ${part ? '' : 'unassigned'} ${continued ? 'continued' : ''} ${selected ? 'selected' : ''}`}
-                    style={{ top: center - 12, ['--part' as string]: part?.color ?? '#9ca3af' }}
+                    style={{ top: center - 12, ['--part' as string]: part?.color ?? 'var(--gray-400)' }}
                     onClick={(event) => {
                       props.onSelectStaff(system.id, staff.id, event.shiftKey);
                       props.onOpenPicker(system.id, staff.id, event.currentTarget.getBoundingClientRect());
@@ -279,8 +279,8 @@ export function PageView(props: Props) {
         >
           <defs>
             <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-              <rect width="8" height="8" fill="#9ca3af" fillOpacity="0.08" />
-              <line x1="0" y1="0" x2="0" y2="8" stroke="#6b7280" strokeOpacity="0.35" strokeWidth="2" />
+              <rect width="8" height="8" className="hatch-bg" />
+              <line x1="0" y1="0" x2="0" y2="8" className="hatch-line" />
             </pattern>
           </defs>
 
@@ -330,19 +330,18 @@ export function PageView(props: Props) {
                             y={top * H}
                             width={W - 2}
                             height={Math.max(0, (bottom - top) * H)}
-                            stroke={part?.color ?? '#374151'}
+                            style={{ stroke: part?.color ?? 'var(--text)' }}
                           />
                         )}
                       </g>
                     );
                   })}
                   <rect
-                    className="system-outline"
+                    className={`system-outline status-${system.status}`}
                     x={1}
                     y={above * H}
                     width={W - 2}
                     height={(below - above) * H}
-                    stroke={STATUS_COLOR[system.status]}
                     strokeWidth={selected ? 2.5 : 1.25}
                     strokeDasharray={system.status === 'review' ? '6 4' : undefined}
                   />
@@ -391,8 +390,8 @@ export function PageView(props: Props) {
                 key={region.id}
                 className={`region ${region.kind} ${region.suggested ? 'suggested' : ''} ${selection.regionId === region.id ? 'selected' : ''}`}
               >
-                <path className="region-fill" d={paths.fill} fill={color} onClick={() => tool === 'select' && props.onSelectRegion(region.id)} />
-                <path className="region-outline" d={paths.outline} stroke={color} />
+                <path className="region-fill" d={paths.fill} style={{ fill: color }} onClick={() => tool === 'select' && props.onSelectRegion(region.id)} />
+                <path className="region-outline" d={paths.outline} style={{ stroke: color }} />
               </g>
             );
           })}
