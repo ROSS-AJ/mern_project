@@ -6,11 +6,11 @@
 //     order, remove.
 
 import { useMemo, useState } from 'react';
-import { INSTRUMENTS, PART_COLORS, PRESETS, makePart, partsFromNames } from '../model/parts.ts';
-import type { Id, Part } from '../model/types.ts';
-import { allSystems } from '../model/types.ts';
-import { useEditor } from './context.ts';
-import { Icon } from './Icon.tsx';
+import { INSTRUMENTS, PART_COLORS, PRESETS, makePart, partsFromNames } from '../../model/parts.ts';
+import type { Id, Part } from '../../model/types.ts';
+import { allSystems } from '../../model/types.ts';
+import { useEditor } from '../shared/context.ts';
+import { Icon } from '../shared/Icon.tsx';
 
 export const ADD_PLAYER_INPUT_ID = 'add-player';
 

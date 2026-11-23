@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { EditorContext } from './editor/context.ts';
-import type { DetectionProgress, Editor } from './editor/context.ts';
-import { ConfirmHost } from './editor/ConfirmDialog.tsx';
-import { Home } from './editor/Home.tsx';
-import { ProjectShell } from './editor/ProjectShell.tsx';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { ConfirmHost } from './ui/shared/ConfirmDialog.tsx';
+import { EditorContext } from './ui/shared/context.ts';
+import type { DetectionProgress, Editor } from './ui/shared/context.ts';
+import { DesignSwitcher } from './ui/DesignSwitcher.tsx';
+import { DESIGNS, initialDesign, saveDesign, showSwitcher } from './ui/index.ts';
+import type { DesignName } from './ui/index.ts';
 import { initialState, reducer } from './model/reducer.ts';
 import type { EditAction } from './model/reducer.ts';
 import { loadLastProject, saveProject, startNewProject } from './model/storage.ts';
@@ -187,6 +188,21 @@ export function App() {
     [doc, pdf, pdfBytes, edit, setStep, undo, redo, state.past.length, state.future.length, detection, redetectPage],
   );
 
+  // ---------- design (Edition or Classic) ----------
+
+  const [designName, setDesignName] = useState<DesignName>(initialDesign);
+  const design = DESIGNS[designName];
+  useLayoutEffect(() => {
+    let style = document.getElementById('partwise-design') as HTMLStyleElement | null;
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'partwise-design';
+      document.head.append(style);
+    }
+    style.textContent = design.css;
+  }, [design]);
+  const { Home, ProjectShell } = design;
+
   return (
     <>
       {editor ? (
@@ -197,6 +213,15 @@ export function App() {
         <Home onContinue={continueProject} onCreate={createProject} error={openError} />
       )}
       <ConfirmHost />
+      {showSwitcher() && (
+        <DesignSwitcher
+          current={designName}
+          onChange={(name) => {
+            saveDesign(name);
+            setDesignName(name);
+          }}
+        />
+      )}
     </>
   );
 }

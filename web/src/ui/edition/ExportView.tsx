@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { partShapes } from '../engine/crop.ts';
-import type { Id } from '../model/types.ts';
-import { allSystems } from '../model/types.ts';
-import { buildPartsPdf, downloadBytes, safeFileName } from '../pdf/exportParts.ts';
-import { closePdf, loadPdf, renderPage } from '../pdf/render.ts';
-import type { PdfDocument } from '../pdf/render.ts';
-import { useEditor } from './context.ts';
-import { Icon } from './Icon.tsx';
+import { partShapes } from '../../engine/crop.ts';
+import type { Id } from '../../model/types.ts';
+import { allSystems } from '../../model/types.ts';
+import { buildPartsPdf, downloadBytes, safeFileName } from '../../pdf/exportParts.ts';
+import { closePdf, loadPdf, renderPage } from '../../pdf/render.ts';
+import type { PdfDocument } from '../../pdf/render.ts';
+import { useEditor } from '../shared/context.ts';
+import { Icon } from '../shared/Icon.tsx';
 
 function PreviewPages({ pdf }: { pdf: PdfDocument }) {
   const host = useRef<HTMLDivElement>(null);

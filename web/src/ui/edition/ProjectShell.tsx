@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import type { SaveState } from '../App.tsx';
-import { allSystems } from '../model/types.ts';
-import { confirmDialog } from './ConfirmDialog.tsx';
+import type { SaveState } from '../../App.tsx';
+import { allSystems } from '../../model/types.ts';
+import { confirmDialog } from '../shared/ConfirmDialog.tsx';
 import { AssignView } from './AssignView.tsx';
-import { useEditor } from './context.ts';
+import { useEditor } from '../shared/context.ts';
 import { ADD_PLAYER_INPUT_ID } from './EnsemblePanel.tsx';
 import { ExportView } from './ExportView.tsx';
-import { Icon } from './Icon.tsx';
+import { Icon } from '../shared/Icon.tsx';
 
 export function ProjectShell({ onClose, saveState }: { onClose: () => void; saveState: SaveState }) {
   const { doc, edit, undo, redo, canUndo, canRedo, detection } = useEditor();

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { clearSaved, peekLastProject } from '../model/storage.ts';
-import type { ProjectDoc } from '../model/types.ts';
-import { confirmDialog } from './ConfirmDialog.tsx';
-import { Icon } from './Icon.tsx';
+import { clearSaved, peekLastProject } from '../../model/storage.ts';
+import type { ProjectDoc } from '../../model/types.ts';
+import { confirmDialog } from '../shared/ConfirmDialog.tsx';
+import { Icon } from '../shared/Icon.tsx';
 
 interface Props {
   onContinue: () => void;

@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { systemBands, systemBoundaries } from '../engine/crop.ts';
-import { bounds, overlap1d, unionPaths } from '../engine/geometry.ts';
-import { mergeTargetId } from '../model/reducer.ts';
-import type { BoundaryTarget } from '../model/reducer.ts';
-import type { Id, Rect, Region } from '../model/types.ts';
-import { uid } from '../model/types.ts';
-import { pageAspect, renderPage } from '../pdf/render.ts';
+import { expectedStaffCount } from '../../engine/assign.ts';
+import { systemBands, systemBoundaries } from '../../engine/crop.ts';
+import { inferPart, planNewStaff } from '../../engine/staffs.ts';
+import { bounds, overlap1d, unionPaths } from '../../engine/geometry.ts';
+import { mergeTargetId } from '../../model/reducer.ts';
+import type { BoundaryTarget } from '../../model/reducer.ts';
+import type { Id, Rect, Region } from '../../model/types.ts';
+import { uid } from '../../model/types.ts';
+import { pageAspect, renderPage } from '../../pdf/render.ts';
 import { useEditor } from './context.ts';
 import { Icon } from './Icon.tsx';
 import { PartPicker } from './PartPicker.tsx';
@@ -104,6 +106,25 @@ export function PageView(props: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const [draft, setDraft] = useState<{ x0: number; y0: number; x1: number; y1: number; cut: boolean } | null>(null);
+  // Add-staff tool: where the new staff would go, and who it would belong to.
+  const [ghost, setGhost] = useState<{ top: number; spacing: number; lineCount: number; label: string } | null>(null);
+  useEffect(() => {
+    if (tool !== 'staff') setGhost(null);
+  }, [tool]);
+
+  const previewStaff = (y: number, lineCount: number) => {
+    const plan = planNewStaff(page, y, lineCount);
+    let label = 'New system';
+    const system = page.systems[plan.systemIndex];
+    if (system) {
+      const fake = { id: 'preview', top: plan.top, bottom: plan.bottom, spacing: plan.spacing, lineCount, partId: null };
+      const staffs = [...system.staffs, fake].sort((a, b) => a.top + a.bottom - (b.top + b.bottom));
+      const complete = staffs.length === expectedStaffCount(doc.parts) && system.status !== 'confirmed';
+      const partId = complete ? null : inferPart(staffs, staffs.indexOf(fake), doc.parts);
+      label = partId ? partById.get(partId)?.name ?? 'New staff' : complete ? 'Completes this system' : 'New staff';
+    }
+    return { top: plan.top, spacing: plan.spacing, lineCount, label };
+  };
   // A part-text box that touches several parts' staffs: ask which part.
   const [partChoice, setPartChoice] = useState<{ rect: Rect; partIds: Id[]; anchor: DOMRect } | null>(null);
 
@@ -147,13 +168,18 @@ export function PageView(props: Props) {
     } else if (tool === 'staff') {
       const d = toDeskewed(p.x, p.y, W, H, angle);
       edit({ type: 'addStaff', page: pageIndex, y: d.y / H, lineCount: event.shiftKey ? 1 : 5 });
-      props.onToolDone();
+      // The tool stays on, so several staffs can be added in a row.
     } else if (event.target === svgRef.current) {
       props.onClear();
     }
   };
 
   const onPointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (tool === 'staff' && page?.detected) {
+      const p = pointer(event);
+      setGhost(previewStaff(toDeskewed(p.x, p.y, W, H, angle).y / H, event.shiftKey ? 1 : 5));
+      return;
+    }
     if (draft) {
       const p = pointer(event);
       setDraft({ ...draft, x1: p.x, y1: p.y });
@@ -292,6 +318,7 @@ export function PageView(props: Props) {
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
+          onPointerLeave={() => setGhost(null)}
         >
           <defs>
             <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
@@ -398,6 +425,25 @@ export function PageView(props: Props) {
               );
             })}
           </g>
+
+          {/* Add-staff preview: where the staff will land, and whose it will be. */}
+          {ghost && tool === 'staff' && (
+            <g transform={`rotate(${-angle} ${W / 2} ${H / 2})`} className="ghost-staff" pointerEvents="none">
+              <rect
+                className="ghost-band"
+                x={0}
+                width={W}
+                y={(ghost.top - ghost.spacing) * H}
+                height={((ghost.lineCount === 1 ? 0 : ghost.spacing * 4) + ghost.spacing * 2) * H}
+              />
+              {Array.from({ length: ghost.lineCount }, (_, k) => (
+                <line key={k} className="ghost-line" x1={0} x2={W} y1={(ghost.top + k * ghost.spacing) * H} y2={(ghost.top + k * ghost.spacing) * H} />
+              ))}
+              <text className="ghost-label" x={10} y={(ghost.top - ghost.spacing * 1.4) * H}>
+                + {ghost.label}
+              </text>
+            </g>
+          )}
 
           {/* Regions are in original page space (not rotated). A merged
               region is drawn as one shape: a single fill and only its outer edge. */}

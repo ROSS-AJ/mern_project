@@ -228,3 +228,73 @@ test('part count mismatch and odd systems are reported', () => {
   assert.ok(kinds.includes('part-count'));
   assert.ok(kinds.includes('odd-system'));
 });
+
+// ---------- adding staffs (engine/staffs.ts) ----------
+
+import { fillFromTemplate, inferPart, missingStaffs, planNewStaff } from './staffs.ts';
+
+/** Staffs with real 5-line geometry: spacing s, height 4s, centers at `centers`. */
+function realSystem(centers: number[], spacing = 0.006, partIds: (string | null)[] = []): SystemDoc {
+  return {
+    id: id('sy'),
+    status: 'auto',
+    staffs: centers.map((c, i) => ({ id: id('st'), top: c - spacing * 2, bottom: c + spacing * 2, spacing, lineCount: 5, partId: partIds[i] ?? null })),
+  };
+}
+const strings = () => [part('Violin I'), part('Violin II'), part('Viola'), part('Cello'), part('Bass')];
+
+test('a new staff copies its neighbors\' size and snaps into the staff pattern', () => {
+  const page = { width: 1000, height: 1300, angle: 0, detected: true, systems: [realSystem([0.1, 0.15, 0.2], 0.006)] };
+  // Click a little off from where the 4th staff belongs (0.25).
+  const plan = planNewStaff(page, 0.262, 5);
+  assert.equal(plan.systemIndex, 0);
+  assert.equal(plan.snapped, true);
+  assert.ok(near((plan.top + plan.bottom) / 2, 0.25));
+  assert.ok(near(plan.spacing, 0.006));
+  assert.ok(near(plan.bottom - plan.top, 0.024));
+});
+
+test('a new staff gets the next missing player in score order', () => {
+  const parts = strings();
+  const sys = realSystem([0.1, 0.15, 0.25], 0.006, ['Violin I', 'Violin II', 'Cello']);
+  const inserted = [...sys.staffs.slice(0, 2), { ...sys.staffs[0], id: 'new', partId: null }, sys.staffs[2]];
+  assert.equal(inferPart(inserted, 2, parts), 'Viola');
+  // Below the last staff: the next player after Cello in score order.
+  const below = [...sys.staffs, { ...sys.staffs[0], id: 'new2', partId: null }];
+  assert.equal(inferPart(below, 3, parts), 'Bass'); // below Cello comes Bass (Viola belongs above Cello)
+});
+
+test('the second staff of a piano is recognised', () => {
+  const parts = [part('Violin'), part('Piano', 2)];
+  const sys = realSystem([0.1, 0.15], 0.006, ['Violin', 'Piano']);
+  const inserted = [...sys.staffs, { ...sys.staffs[0], id: 'new', partId: null }];
+  assert.equal(inferPart(inserted, 2, parts), 'Piano');
+});
+
+test('adding staffs one after another fills the players in order', () => {
+  const parts = strings();
+  let state = reducer({ doc: null, past: [], future: [], lastCoalesce: null }, { type: 'load', doc: doc(parts, [[realSystem([0.1], 0.006)]]) });
+  // The detected staff gets confirmed as Violin I by the user.
+  const first = state.doc!.pages[0].systems[0];
+  state = reducer(state, { type: 'edit', edit: { type: 'assignStaff', page: 0, systemId: first.id, staffId: first.staffs[0].id, partId: 'Violin I' } });
+  for (const y of [0.15, 0.2, 0.25]) state = reducer(state, { type: 'edit', edit: { type: 'addStaff', page: 0, y, lineCount: 5 } });
+  assert.deepEqual(state.doc!.pages[0].systems[0].staffs.map((s) => s.partId), ['Violin I', 'Violin II', 'Viola', 'Cello']);
+});
+
+test('fill rebuilds a short system from a complete one, fixing a misdetected line', () => {
+  const parts = strings();
+  const full = realSystem([0.1, 0.15, 0.2, 0.25, 0.3], 0.006, ['Violin I', 'Violin II', 'Viola', 'Cello', 'Bass']);
+  full.status = 'confirmed';
+  // Below it, only one line was found: the middle line of the first staff (center 0.5).
+  const broken: SystemDoc = { id: id('sy'), status: 'review', staffs: [{ id: 'lone', top: 0.5, bottom: 0.5, spacing: 0.006, lineCount: 1, partId: null }] };
+  const d = doc(parts, [[full, broken]]);
+  assert.equal(missingStaffs(d, 0, 1), 4);
+  const filled = fillFromTemplate(d, 0, 1, () => id('new'))!;
+  assert.equal(filled.staffs.length, 5);
+  assert.deepEqual(filled.staffs.map((s) => s.partId), ['Violin I', 'Violin II', 'Viola', 'Cello', 'Bass']);
+  assert.ok(filled.staffs.every((s) => s.lineCount === 5 && near(s.spacing, 0.006)));
+  assert.equal(filled.staffs[0].id, 'lone'); // the detected line became the first staff
+  assert.ok(near((filled.staffs[0].top + filled.staffs[0].bottom) / 2, 0.5));
+  assert.ok(near((filled.staffs[4].top + filled.staffs[4].bottom) / 2, 0.7));
+  assert.equal(filled.status, 'confirmed');
+});

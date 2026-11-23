@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
-import type { EditAction } from '../model/reducer.ts';
-import type { ProjectDoc, Step } from '../model/types.ts';
-import type { PdfDocument } from '../pdf/render.ts';
+import type { EditAction } from '../../model/reducer.ts';
+import type { ProjectDoc, Step } from '../../model/types.ts';
+import type { PdfDocument } from '../../pdf/render.ts';
 
 export interface DetectionProgress {
   done: number;

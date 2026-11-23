@@ -1,5 +1,5 @@
-import type { Id, PageDoc, ProjectDoc } from '../model/types.ts';
-import { allSystems } from '../model/types.ts';
+import type { Id, PageDoc, ProjectDoc } from '../../model/types.ts';
+import { allSystems } from '../../model/types.ts';
 
 export type Tool = 'select' | 'text' | 'partText' | 'staff';
 

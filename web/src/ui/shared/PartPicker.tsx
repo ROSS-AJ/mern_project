@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Id, Part } from '../model/types.ts';
+import type { Id, Part } from '../../model/types.ts';
 
 interface Props {
   parts: Part[];

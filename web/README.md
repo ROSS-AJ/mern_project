@@ -21,7 +21,7 @@ The detection test page (overlays only, no editor) still runs with
 | `src/engine/` | Plain logic, no React. `detect.ts` finds lines, staffs and systems. `assign.ts` matches staffs to parts and repeats confirmed layouts. `crop.ts` works out each part's bands and attaches shared text. `issues.ts` finds things to flag. `suggest.ts` suggests shared-text regions. |
 | `src/model/` | `types.ts` is the saved project format. `reducer.ts` holds every edit as a named action, with undo/redo. `storage.ts` keeps only the current project (and its PDF) in the browser so it can be continued; starting a new score replaces it. Signed-in users will get a project browser; put the API calls in this file. `parts.ts` has presets and instrument defaults. |
 | `src/pdf/` | pdf.js rendering, running detection per page, and pdf-lib export (vector crops, not screenshots). |
-| `src/editor/` | One workspace (`ProjectShell`): `EnsemblePanel` (players; pick one and click staves to assign them), `AssignView` (tool strip, score via `PageView`, `ReviewDock`, `PageRail` filmstrip) and `Inspector`. Parts open in a drawer (`ExportView`). Plus `Home`, `PartPicker` and `ConfirmDialog`. |
+| `src/ui/` | The screens. `shared/` is used by both designs (page view, picker, zoom, filmstrip, dialogs, editor context). `edition/` and `classic/` each have their own screens and stylesheet. `index.ts` lists the designs. |
 
 To add a new kind of edit, add an action to `EditAction` in
 `src/model/reducer.ts` and a case in `applyEdit`. Undo and re-running
@@ -37,6 +37,32 @@ auto-assignment happen automatically.
 
 Coordinates are stored as fractions of the page, so nothing depends on render
 resolution.
+
+## Two designs
+
+Both designs run on the same engine, model and PDF code, and open the same
+saved project, so you can switch in the middle of working.
+
+- **Edition** (default): one workspace with the Ensemble, the score and a
+  parts drawer. `src/ui/edition/`
+- **Classic**: the original three steps (Parts, Assign, Export).
+  `src/ui/classic/`
+
+Switch with the UI toggle in the bottom-left corner (shown in development),
+or open the app with `?ui=edition` or `?ui=classic`. The choice is
+remembered. Only the active design's stylesheet is loaded.
+
+## Adding missed staffs
+
+Both designs use the same logic (`engine/staffs.ts`):
+
+- The add-staff tool (S) previews the staff before you click: it snaps into
+  the system's staff pattern, matches its neighbors' size and spacing, and
+  shows which player it will belong to (the next one missing in score order).
+  The tool stays on, so several staffs can be added in a row.
+- "Add N missing staffs" (details panel, and the review strip in Edition)
+  rebuilds a short system in one go by copying a complete system nearby,
+  including the players. A misdetected single line becomes a full staff.
 
 ## Zoom and pan
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { renderPage } from '../pdf/render.ts';
+import { renderPage } from '../../pdf/render.ts';
 import { useEditor } from './context.ts';
 
 function Thumb({ index }: { index: number }) {

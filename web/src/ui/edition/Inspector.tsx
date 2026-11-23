@@ -1,10 +1,11 @@
-import { signature } from '../engine/assign.ts';
-import type { Issue } from '../engine/issues.ts';
-import { allSystems } from '../model/types.ts';
-import { confirmDialog } from './ConfirmDialog.tsx';
-import { useEditor } from './context.ts';
-import { Icon } from './Icon.tsx';
-import type { Selection, Tool } from './selection.ts';
+import { signature } from '../../engine/assign.ts';
+import { missingStaffs } from '../../engine/staffs.ts';
+import type { Issue } from '../../engine/issues.ts';
+import { allSystems } from '../../model/types.ts';
+import { confirmDialog } from '../shared/ConfirmDialog.tsx';
+import { useEditor } from '../shared/context.ts';
+import { Icon } from '../shared/Icon.tsx';
+import type { Selection, Tool } from '../shared/selection.ts';
 
 interface Props {
   pageIndex: number;
@@ -164,6 +165,7 @@ export function Inspector({ pageIndex, selection, setSelection, setTool, issues,
     const matching = allSystems(doc).filter(({ system: other }) => other.id !== system.id && signature(other) === signature(system)).length;
     const hasCustomEdges = system.bandTop !== undefined || system.bandBottom !== undefined || system.staffs.some((s) => s.splitAbove !== undefined);
     const systemIssues = issues.filter((issue) => issue.systemId === system.id);
+    const missing = missingStaffs(doc, pageIndex, systemIndex);
     const ref = [{ page: pageIndex, systemId: system.id }];
 
     return (
@@ -245,6 +247,11 @@ export function Inspector({ pageIndex, selection, setSelection, setTool, issues,
         </section>
 
         <footer>
+          {missing > 0 && (
+            <button className="button primary full" onClick={() => edit({ type: 'fillSystem', page: pageIndex, systemId: system.id })}>
+              <Icon name="plus" /> Add {missing} missing staff{missing === 1 ? '' : 's'}
+            </button>
+          )}
           {system.status !== 'confirmed' && (
             <button
               className="button primary full"

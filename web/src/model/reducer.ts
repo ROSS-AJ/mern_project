@@ -2,9 +2,10 @@
 // of edit: add an action type, then a case in applyEdit. Undo/redo and
 // re-running auto-assignment come for free.
 
-import { autoAssign } from '../engine/assign.ts';
+import { autoAssign, expectedStaffCount } from '../engine/assign.ts';
+import { fillFromTemplate, inferPart, planNewStaff } from '../engine/staffs.ts';
 import { shapesTouch, subtractAll } from '../engine/geometry.ts';
-import type { Id, PageDoc, Part, ProjectDoc, Rect, Region, RegionKind, Step, SystemDoc } from './types.ts';
+import type { Id, PageDoc, Part, ProjectDoc, Rect, Region, RegionKind, StaffDoc, Step, SystemDoc } from './types.ts';
 import { migrateDoc, uid } from './types.ts';
 
 /** Regions that merge when they touch: same page, same kind, same parts. */
@@ -31,6 +32,8 @@ export type EditAction =
   | { type: 'applyLayoutToMatching'; page: number; systemId: Id }
   | { type: 'removeStaff'; page: number; systemId: Id; staffId: Id }
   | { type: 'addStaff'; page: number; y: number; lineCount: number }
+  /** Add every staff a system is missing, copying a complete system nearby. */
+  | { type: 'fillSystem'; page: number; systemId: Id }
   | { type: 'splitSystem'; page: number; systemId: Id; beforeStaff: number }
   | { type: 'joinWithNext'; page: number; systemId: Id }
   | { type: 'moveBoundary'; page: number; systemId: Id; target: BoundaryTarget; y: number }
@@ -140,11 +143,6 @@ function replacePage(doc: ProjectDoc, index: number, page: PageDoc): ProjectDoc 
   return { ...doc, pages };
 }
 
-function medianSpacing(page: PageDoc): number {
-  const values = page.systems.flatMap((system) => system.staffs.map((staff) => staff.spacing)).sort((a, b) => a - b);
-  return values.length > 0 ? values[Math.floor(values.length / 2)] : 0.008;
-}
-
 // ---------- edits ----------
 
 function applyEdit(doc: ProjectDoc, edit: EditAction): ProjectDoc {
@@ -218,36 +216,51 @@ function applyEdit(doc: ProjectDoc, edit: EditAction): ProjectDoc {
     }
 
     case 'addStaff': {
+      // Sized like its neighbors, snapped into the staff pattern, and given
+      // the player who most likely belongs there (see engine/staffs.ts).
       const page = doc.pages[edit.page];
       if (!page) return doc;
-      const spacing = medianSpacing(page);
-      const height = edit.lineCount === 1 ? 0 : spacing * 4;
-      const staff = {
+      const plan = planNewStaff(page, edit.y, edit.lineCount);
+      const staff: StaffDoc = {
         id: uid(),
-        top: edit.y - height / 2,
-        bottom: edit.y + height / 2,
-        spacing,
-        lineCount: edit.lineCount,
+        top: plan.top,
+        bottom: plan.bottom,
+        spacing: plan.spacing,
+        lineCount: plan.lineCount,
         partId: null,
       };
-      // Into the system it lands in (or right next to), else a new system.
-      const reach = spacing * 8;
-      const systemIndex = page.systems.findIndex(
-        (system) => edit.y >= system.staffs[0].top - reach && edit.y <= system.staffs[system.staffs.length - 1].bottom + reach,
-      );
       let systems: SystemDoc[];
-      if (systemIndex === -1) {
+      if (plan.systemIndex === -1) {
         systems = [...page.systems, { id: uid(), status: 'auto' as const, staffs: [staff] }];
       } else {
         systems = page.systems.slice();
-        const system = systems[systemIndex];
-        systems[systemIndex] = {
-          ...system,
-          status: 'auto',
-          staffs: [...system.staffs, staff].sort((a, b) => a.top - b.top),
-        };
+        const system = systems[plan.systemIndex];
+        const staffs = [...system.staffs, staff].sort((a, b) => a.top + a.bottom - (b.top + b.bottom));
+        const complete = staffs.length === expectedStaffCount(doc.parts);
+        if (complete && system.status !== 'confirmed') {
+          // Now the count matches the part list, so automatic assignment in
+          // order is exactly right.
+          systems[plan.systemIndex] = { ...system, status: 'auto', staffs };
+        } else {
+          // Still short (or the user already confirmed it): name the new
+          // staff after the missing player and keep everything else as is.
+          const index = staffs.indexOf(staff);
+          staffs[index] = { ...staff, partId: inferPart(staffs, index, doc.parts) };
+          systems[plan.systemIndex] = { ...system, status: 'confirmed', staffs };
+        }
       }
       systems.sort((a, b) => a.staffs[0].top - b.staffs[0].top);
+      return replacePage(doc, edit.page, { ...page, systems });
+    }
+
+    case 'fillSystem': {
+      const page = doc.pages[edit.page];
+      const index = page?.systems.findIndex((system) => system.id === edit.systemId) ?? -1;
+      if (!page || index === -1) return doc;
+      const filled = fillFromTemplate(doc, edit.page, index, uid);
+      if (!filled) return doc;
+      const systems = page.systems.slice();
+      systems[index] = filled;
       return replacePage(doc, edit.page, { ...page, systems });
     }
 

@@ -3,21 +3,21 @@
 // check the few systems that need it, mark shared text.
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { findIssues } from '../engine/issues.ts';
-import type { Id } from '../model/types.ts';
-import { allSystems } from '../model/types.ts';
-import { useEditor } from './context.ts';
+import { findIssues } from '../../engine/issues.ts';
+import type { Id } from '../../model/types.ts';
+import { allSystems } from '../../model/types.ts';
+import { useEditor } from '../shared/context.ts';
 import { EnsemblePanel } from './EnsemblePanel.tsx';
-import { Icon } from './Icon.tsx';
-import type { IconName } from './Icon.tsx';
+import { Icon } from '../shared/Icon.tsx';
+import type { IconName } from '../shared/Icon.tsx';
 import { Inspector } from './Inspector.tsx';
-import { GUTTER, PageView } from './PageView.tsx';
-import { PageRail } from './PageRail.tsx';
-import { PartPicker } from './PartPicker.tsx';
+import { GUTTER, PageView } from '../shared/PageView.tsx';
+import { PageRail } from '../shared/PageRail.tsx';
+import { PartPicker } from '../shared/PartPicker.tsx';
 import { ReviewDock } from './ReviewDock.tsx';
-import type { Selection, Tool } from './selection.ts';
-import { emptySelection, findReview, pageStaffs } from './selection.ts';
-import { useZoom } from './useZoom.ts';
+import type { Selection, Tool } from '../shared/selection.ts';
+import { emptySelection, findReview, pageStaffs } from '../shared/selection.ts';
+import { useZoom } from '../shared/useZoom.ts';
 
 const TOOLS: { tool: Tool; label: string; key: string; icon: IconName }[] = [
   { tool: 'select', label: 'Select', key: 'V', icon: 'cursor' },
@@ -214,7 +214,7 @@ export function AssignView({ onExport }: { onExport: () => void }) {
         : tool === 'partText'
           ? 'Drag a box over text that belongs to one player, like a dynamic hanging below their staff.'
           : tool === 'staff'
-            ? 'Click where a staff was missed. Shift-click adds a single-line percussion staff.'
+            ? 'Click where a staff is missing. It snaps into line, matches its neighbors and gets the next player. Keep clicking to add more; Shift-click adds a percussion line.'
             : null);
 
   return (
@@ -276,26 +276,6 @@ export function AssignView({ onExport }: { onExport: () => void }) {
           </div>
         </div>
 
-        {(hint || banner) && (
-          <div className={`canvas-note ${notice || (banner && !hint) ? 'warn' : ''}`} style={brushPart ? { ['--part' as string]: brushPart.color } : undefined}>
-            {hint ? (
-              <>
-                <span className={`note-mark ${brush !== undefined && tool === 'select' ? 'brush' : ''}`} />
-                <span className="grow">{hint}</span>
-                <span className="muted">Esc to stop</span>
-              </>
-            ) : (
-              banner && (
-                <>
-                  <Icon name="alert" />
-                  <span className="grow">{banner.message}</span>
-                  <button className="text-button" onClick={() => edit({ type: 'dismissIssue', id: banner.id })}>Dismiss</button>
-                </>
-              )
-            )}
-          </div>
-        )}
-
         <div className="canvas-body">
           <nav className="tool-strip" aria-label="Tools">
             {TOOLS.map((item) => (
@@ -316,6 +296,27 @@ export function AssignView({ onExport }: { onExport: () => void }) {
               </span>
             )}
           </nav>
+
+          {(hint || banner) && (
+            <div className={`canvas-note ${notice || (banner && !hint) ? 'warn' : ''}`} style={brushPart ? { ['--part' as string]: brushPart.color } : undefined}>
+              {hint ? (
+                <>
+                  <span className={`note-mark ${brush !== undefined && tool === 'select' ? 'brush' : ''}`} />
+                  <span className="grow">{hint}</span>
+                  <span className="muted">Esc to stop</span>
+                </>
+              ) : (
+                banner && (
+                  <>
+                    <Icon name="alert" />
+                    <span className="grow">{banner.message}</span>
+                    <button className="text-button" onClick={() => edit({ type: 'dismissIssue', id: banner.id })}>Dismiss</button>
+                  </>
+                )
+              )}
+            </div>
+          )}
+
 
           <div
             className={`scroller ${zoom.panReady ? 'pan-ready' : ''} ${zoom.panning ? 'panning' : ''}`}

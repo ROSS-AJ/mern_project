@@ -2,9 +2,10 @@
 // a short sentence ("Violin, Cello, Piano"), with one big "Looks right" button.
 // Fixing is done right on the page: pick a player and click a staff.
 
-import type { Id } from '../model/types.ts';
-import { useEditor } from './context.ts';
-import { Icon } from './Icon.tsx';
+import type { Id } from '../../model/types.ts';
+import { missingStaffs } from '../../engine/staffs.ts';
+import { useEditor } from '../shared/context.ts';
+import { Icon } from '../shared/Icon.tsx';
 
 interface Props {
   pageIndex: number;
@@ -17,7 +18,7 @@ interface Props {
 }
 
 export function ReviewDock({ pageIndex, systemId, remaining, onConfirm, onSkip, onClose, onFinish }: Props) {
-  const { doc } = useEditor();
+  const { doc, edit } = useEditor();
   const page = doc.pages[pageIndex];
   const systemIndex = page?.systems.findIndex((s) => s.id === systemId) ?? -1;
   const system = systemIndex >= 0 ? page.systems[systemIndex] : undefined;
@@ -39,6 +40,7 @@ export function ReviewDock({ pageIndex, systemId, remaining, onConfirm, onSkip, 
   }
 
   // Group consecutive staffs of the same player: "Piano" once, not twice.
+  const missing = system ? missingStaffs(doc, pageIndex, systemIndex) : 0;
   const lineup: { name: string; color: string; staves: number }[] = [];
   for (const staff of system?.staffs ?? []) {
     const part = doc.parts.find((p) => p.id === staff.partId);
@@ -65,6 +67,11 @@ export function ReviewDock({ pageIndex, systemId, remaining, onConfirm, onSkip, 
         <span className="review-hint">Not right? Pick a player on the left and click their staff.</span>
       </div>
       <div className="review-actions">
+        {missing > 0 && system && (
+          <button className="button" onClick={() => edit({ type: 'fillSystem', page: pageIndex, systemId: system.id })}>
+            <Icon name="plus" /> Add {missing} missing staff{missing === 1 ? '' : 's'}
+          </button>
+        )}
         <button className="button ghost" onClick={onClose}>Stop</button>
         <button className="button" onClick={onSkip}>Skip <kbd>N</kbd></button>
         <button className="button primary large" onClick={onConfirm} disabled={!system}>
