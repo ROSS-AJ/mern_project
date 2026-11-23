@@ -30,8 +30,9 @@ function PreviewPages({ pdf }: { pdf: PdfDocument }) {
   return <div className="preview-pages" ref={host} />;
 }
 
-export function ExportView() {
-  const { doc, pdf, pdfBytes, setStep } = useEditor();
+/** onClose returns to the score (the export opens as a drawer over it). */
+export function ExportView({ onClose }: { onClose: () => void }) {
+  const { doc, pdf, pdfBytes } = useEditor();
   const [focus, setFocus] = useState<Id | null>(doc.parts[0]?.id ?? null);
   const [chosen, setChosen] = useState<Set<Id>>(() => new Set(doc.parts.map((p) => p.id)));
   const [preview, setPreview] = useState<PdfDocument | null>(null);
@@ -127,14 +128,14 @@ export function ExportView() {
         <div className="stack">
           {undetected > 0 && <p className="callout"><Icon name="alert" /><span>{undetected} page(s) are still being detected.</span></p>}
           {review > 0 && (
-            <button className="callout warn action" onClick={() => setStep('assign')}>
+            <button className="callout warn action" onClick={onClose}>
               <Icon name="alert" />
               <span>{review} system{review === 1 ? '' : 's'} still need a check. Parts may be wrong there.</span>
               <Icon name="chevronRight" />
             </button>
           )}
           {pendingSuggestions > 0 && (
-            <button className="callout action" onClick={() => setStep('assign')}>
+            <button className="callout action" onClick={onClose}>
               <Icon name="sparkles" />
               <span>{pendingSuggestions} suggested shared-text region{pendingSuggestions === 1 ? ' isn’t' : 's aren’t'} accepted yet, so they're left out.</span>
               <Icon name="chevronRight" />

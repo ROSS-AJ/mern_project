@@ -44,6 +44,21 @@ export function partsFromNames(names: string[]): Part[] {
   return names.map((name) => name.trim()).filter(Boolean).map(makePart);
 }
 
+/** Common instrument names, for suggestions while typing. */
+export const INSTRUMENTS = [
+  'Piccolo', 'Flute', 'Flute 1', 'Flute 2', 'Alto Flute', 'Oboe', 'Oboe 1', 'Oboe 2', 'English Horn',
+  'Clarinet in B♭', 'Clarinet 1', 'Clarinet 2', 'Clarinet in A', 'E♭ Clarinet', 'Bass Clarinet',
+  'Bassoon', 'Bassoon 1', 'Bassoon 2', 'Contrabassoon',
+  'Soprano Sax', 'Alto Sax', 'Tenor Sax', 'Baritone Sax',
+  'Horn', 'Horn 1', 'Horn 2', 'Horn 3', 'Horn 4', 'Trumpet', 'Trumpet 1', 'Trumpet 2', 'Trumpet 3', 'Cornet',
+  'Flugelhorn', 'Trombone', 'Trombone 1', 'Trombone 2', 'Bass Trombone', 'Euphonium', 'Baritone', 'Tuba',
+  'Timpani', 'Percussion', 'Snare Drum', 'Bass Drum', 'Cymbals', 'Drum Set', 'Glockenspiel', 'Xylophone',
+  'Vibraphone', 'Marimba', 'Chimes',
+  'Harp', 'Piano', 'Celesta', 'Harpsichord', 'Organ', 'Guitar', 'Bass Guitar',
+  'Soprano', 'Alto', 'Tenor', 'Bass', 'Voice',
+  'Violin', 'Violin I', 'Violin II', 'Viola', 'Cello', 'Double Bass', 'Contrabass',
+];
+
 export const PRESETS: { name: string; parts: string[] }[] = [
   { name: 'String quartet', parts: ['Violin I', 'Violin II', 'Viola', 'Cello'] },
   { name: 'Piano trio', parts: ['Violin', 'Cello', 'Piano'] },

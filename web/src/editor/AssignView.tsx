@@ -1,41 +1,61 @@
+// The workspace: Ensemble on the left, the score in the middle, details on
+// the right. Everything happens here: add players, give staves to players,
+// check the few systems that need it, mark shared text.
+
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { findIssues } from '../engine/issues.ts';
 import type { Id } from '../model/types.ts';
 import { allSystems } from '../model/types.ts';
 import { useEditor } from './context.ts';
+import { EnsemblePanel } from './EnsemblePanel.tsx';
 import { Icon } from './Icon.tsx';
+import type { IconName } from './Icon.tsx';
 import { Inspector } from './Inspector.tsx';
 import { GUTTER, PageView } from './PageView.tsx';
 import { PageRail } from './PageRail.tsx';
 import { PartPicker } from './PartPicker.tsx';
+import { ReviewDock } from './ReviewDock.tsx';
 import type { Selection, Tool } from './selection.ts';
 import { emptySelection, findReview, pageStaffs } from './selection.ts';
 import { useZoom } from './useZoom.ts';
 
-export function AssignView() {
-  const { doc, edit, setStep } = useEditor();
+const TOOLS: { tool: Tool; label: string; key: string; icon: IconName }[] = [
+  { tool: 'select', label: 'Select', key: 'V', icon: 'cursor' },
+  { tool: 'text', label: 'Shared text: tempo, rehearsal marks, titles', key: 'T', icon: 'text' },
+  { tool: 'partText', label: 'Player text: belongs to one player only', key: 'P', icon: 'users' },
+  { tool: 'staff', label: 'Add a missed staff', key: 'S', icon: 'staff' },
+];
+
+export function AssignView({ onExport }: { onExport: () => void }) {
+  const { doc, edit } = useEditor();
   const [pageIndex, setPageIndex] = useState(() => {
     const first = allSystems(doc).find(({ system }) => system.status === 'review');
     return first?.page ?? 0;
   });
   const [selection, setSelection] = useState<Selection>(emptySelection);
   const [tool, setTool] = useState<Tool>('select');
-  // A one-off message shown in the tool hint bar for a few seconds.
   const [notice, setNotice] = useState<string | null>(null);
   useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(null), 4000);
     return () => clearTimeout(timer);
   }, [notice]);
+  // The player picked in the Ensemble (null = "Nobody", undefined = none).
+  const [brush, setBrush] = useState<Id | null | undefined>(undefined);
+  const [reviewing, setReviewing] = useState(false);
   const [picker, setPicker] = useState<{ systemId: Id; staffId: Id; anchor: DOMRect } | null>(null);
   const [scrollTo, setScrollTo] = useState<Id | null>(null);
 
   const page = doc.pages[pageIndex];
   const issues = useMemo(() => findIssues(doc), [doc]);
-  const reviewCount = useMemo(() => allSystems(doc).filter(({ system }) => system.status === 'review').length, [doc]);
-  const banner = issues.find((issue) => issue.kind === 'part-count' || issue.kind === 'no-parts');
+  const reviewCount = useMemo(
+    () => (doc.parts.length === 0 ? 0 : allSystems(doc).filter(({ system }) => system.status === 'review').length),
+    [doc],
+  );
+  const banner = issues.find((issue) => issue.kind === 'part-count');
+  const brushPart = brush ? doc.parts.find((p) => p.id === brush) : undefined;
 
-  // ---------- page width ----------
+  // ---------- page width and zoom ----------
   const scroller = useRef<HTMLDivElement>(null);
   const [available, setAvailable] = useState(800);
   useLayoutEffect(() => {
@@ -46,9 +66,9 @@ export function AssignView() {
     setAvailable(element.clientWidth);
     return () => observer.disconnect();
   }, []);
+  // The scroller has 24px padding on each side.
   const fitWidth = Math.max(320, available - GUTTER - 48);
   const zoom = useZoom(scroller, '.page-wrap', fitWidth);
-  const pageWidth = zoom.pageWidth;
 
   // ---------- navigation ----------
   const goToPage = useCallback(
@@ -78,23 +98,21 @@ export function AssignView() {
   useEffect(() => {
     if (!scrollTo) return;
     const frame = requestAnimationFrame(() => {
-      document.getElementById(`sys-${scrollTo}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      // To the top of the view, so the review strip below never covers it.
+      document.getElementById(`sys-${scrollTo}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
       setScrollTo(null);
     });
     return () => cancelAnimationFrame(frame);
   }, [scrollTo, pageIndex]);
 
-  // ---------- selection helpers ----------
-  const selectStaff = useCallback(
-    (systemId: Id, staffId: Id, additive: boolean) => {
-      setSelection((current) => ({
-        systemIds: additive ? [...new Set([...current.systemIds, systemId])] : [systemId],
-        staffId,
-        regionId: null,
-      }));
-    },
-    [],
-  );
+  // ---------- selection ----------
+  const selectStaff = useCallback((systemId: Id, staffId: Id, additive: boolean) => {
+    setSelection((current) => ({
+      systemIds: additive ? [...new Set([...current.systemIds, systemId])] : [systemId],
+      staffId,
+      regionId: null,
+    }));
+  }, []);
 
   const staffs = useMemo(() => (page ? pageStaffs(page) : []), [page]);
 
@@ -109,11 +127,15 @@ export function AssignView() {
     const entry = staffs[index];
     if (!entry) return;
     edit({ type: 'assignStaff', page: pageIndex, systemId: entry.system.id, staffId: entry.staff.id, partId });
-    // Move on to the next staff after the ones just assigned, to keep going quickly.
     const part = doc.parts.find((p) => p.id === partId);
     const step = Math.min(part?.staffCount ?? 1, entry.system.staffs.length - entry.index);
     const next = staffs[index + step];
     if (next) selectStaff(next.system.id, next.staff.id, false);
+  };
+
+  const pickTool = (next: Tool) => {
+    setBrush(undefined);
+    setTool(next);
   };
 
   // ---------- keyboard ----------
@@ -121,13 +143,21 @@ export function AssignView() {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target;
       if ((target instanceof Element && target.matches('input, textarea, select')) || event.ctrlKey || event.metaKey || event.altKey) return;
-      if (picker) return; // the picker handles its own keys
+      if (picker || document.querySelector('.dialog')) return;
 
       const key = event.key;
-      if (/^[0-9]$/.test(key) && selection.staffId) {
+      if (/^[0-9]$/.test(key) && selection.staffId && brush === undefined) {
         event.preventDefault();
         const number = Number(key);
         assignSelected(number === 0 ? null : doc.parts[number - 1]?.id ?? null);
+      } else if (/^[0-9]$/.test(key)) {
+        event.preventDefault();
+        const number = Number(key);
+        const next = number === 0 ? null : doc.parts[number - 1]?.id;
+        if (next !== undefined) {
+          setTool('select');
+          setBrush(brush === next ? undefined : next);
+        }
       } else if (key === 'ArrowDown' || key === 'ArrowUp') {
         event.preventDefault();
         moveStaffSelection(key === 'ArrowDown' ? 1 : -1);
@@ -141,20 +171,24 @@ export function AssignView() {
         event.preventDefault();
         const wasReview = page?.systems.some((s) => selection.systemIds.includes(s.id) && s.status === 'review');
         edit({ type: 'confirmSystems', refs: selection.systemIds.map((systemId) => ({ page: pageIndex, systemId })) });
-        if (wasReview) goToReview(1);
+        if (wasReview || reviewing) goToReview(1);
       } else if (key === 'n' || key === 'N') {
+        setReviewing(true);
         goToReview(event.shiftKey ? -1 : 1);
       } else if (key === 't' || key === 'T') {
-        setTool('text');
+        pickTool('text');
       } else if (key === 'p' || key === 'P') {
-        setTool('partText');
+        pickTool('partText');
       } else if (key === 's' || key === 'S') {
-        setTool('staff');
+        pickTool('staff');
       } else if (key === 'v' || key === 'V') {
-        setTool('select');
+        pickTool('select');
       } else if (key === 'Escape') {
-        setTool('select');
-        setSelection(emptySelection);
+        // Unwind one thing at a time.
+        if (brush !== undefined) setBrush(undefined);
+        else if (tool !== 'select') setTool('select');
+        else if (selection.systemIds.length || selection.staffId || selection.regionId) setSelection(emptySelection);
+        else setReviewing(false);
       } else if ((key === 'Delete' || key === 'Backspace') && selection.regionId) {
         event.preventDefault();
         edit({ type: 'removeRegion', id: selection.regionId });
@@ -169,25 +203,51 @@ export function AssignView() {
 
   const pickerStaff = picker ? page?.systems.find((s) => s.id === picker.systemId)?.staffs.find((s) => s.id === picker.staffId) : undefined;
 
-  return (
-    <main className="assign">
-      <PageRail current={pageIndex} onSelect={goToPage} />
+  const hint =
+    notice ??
+    (brush !== undefined && tool === 'select'
+      ? brushPart
+        ? `Click staves to give them to ${brushPart.name || 'this player'}.`
+        : 'Click staves to leave them out of every part.'
+      : tool === 'text'
+        ? 'Drag a box around text every player should get. Boxes that touch join together. Alt-drag cuts a piece out.'
+        : tool === 'partText'
+          ? 'Drag a box over text that belongs to one player, like a dynamic hanging below their staff.'
+          : tool === 'staff'
+            ? 'Click where a staff was missed. Shift-click adds a single-line percussion staff.'
+            : null);
 
-      <section className="workspace">
-        <div className="toolbar">
-          <div className="segmented" role="group" aria-label="Tool">
-            <button className={tool === 'select' ? 'active' : ''} onClick={() => setTool('select')} title="Select and assign (V)">
-              <Icon name="cursor" /> Select
-            </button>
-            <button className={tool === 'text' ? 'active' : ''} onClick={() => setTool('text')} title="Draw a shared-text box (T)">
-              <Icon name="text" /> Shared text
-            </button>
-            <button className={tool === 'partText' ? 'active' : ''} onClick={() => setTool('partText')} title="Attach text to one part's staff (P)">
-              <Icon name="users" /> Part text
-            </button>
-            <button className={tool === 'staff' ? 'active' : ''} onClick={() => setTool('staff')} title="Click where a staff was missed (S)">
-              <Icon name="staff" /> Add staff
-            </button>
+  return (
+    <main className="workspace">
+      <EnsemblePanel
+        brush={brush}
+        setBrush={(next) => {
+          setTool('select');
+          setBrush(next);
+        }}
+      />
+
+      <section className="canvas">
+        <div className="canvas-head">
+          <div className="canvas-head-left">
+            {doc.parts.length === 0 ? (
+              <span className="state muted">Add your players to begin</span>
+            ) : reviewCount > 0 ? (
+              <button
+                className={`state attention ${reviewing ? 'on' : ''}`}
+                onClick={() => {
+                  setReviewing(true);
+                  goToReview(1);
+                }}
+                title="Walk through the systems that need a look (N)"
+              >
+                <span className="state-dot" />
+                {reviewCount} to check
+                <Icon name="chevronRight" size={14} />
+              </button>
+            ) : (
+              <span className="state done"><Icon name="check" size={14} /> All checked</span>
+            )}
           </div>
 
           <div className="page-nav">
@@ -195,92 +255,116 @@ export function AssignView() {
               <Icon name="chevronLeft" />
             </button>
             <span>
-              Page <strong>{pageIndex + 1}</strong> of {doc.pages.length}
+              Page <strong>{pageIndex + 1}</strong> <span className="muted">/ {doc.pages.length}</span>
             </span>
-            <button
-              className="icon-button"
-              onClick={() => goToPage(pageIndex + 1)}
-              disabled={pageIndex === doc.pages.length - 1}
-              aria-label="Next page"
-            >
+            <button className="icon-button" onClick={() => goToPage(pageIndex + 1)} disabled={pageIndex === doc.pages.length - 1} aria-label="Next page">
               <Icon name="chevronRight" />
             </button>
           </div>
 
-          <div className="row gap">
-            <div className="zoom-control" role="group" aria-label="Zoom">
-              <button className="icon-button" onClick={() => zoom.zoomBy(0.8)} aria-label="Zoom out" title="Zoom out (−)">
-                <Icon name="minus" />
-              </button>
-              <button className="zoom-value" onClick={zoom.actualSize} title="Actual size. Pinch or Ctrl+scroll to zoom, hold Space to pan.">
-                {zoom.percent}%
-              </button>
-              <button className="icon-button" onClick={() => zoom.zoomBy(1.25)} aria-label="Zoom in" title="Zoom in (+)">
-                <Icon name="plus" />
-              </button>
-              <button className={`text-button ${zoom.isFit ? 'active' : ''}`} onClick={zoom.fit} title="Fit width (Ctrl+0)">
-                Fit
-              </button>
-            </div>
-            {reviewCount > 0 ? (
-              <button className="button warn" onClick={() => goToReview(1)} title="Next system to check (N)">
-                {reviewCount} to check <Icon name="chevronRight" />
-              </button>
+          <div className="zoom" role="group" aria-label="Zoom">
+            <button className="icon-button" onClick={() => zoom.zoomBy(0.8)} aria-label="Zoom out" title="Zoom out (−)">
+              <Icon name="minus" />
+            </button>
+            <button className="zoom-value" onClick={zoom.actualSize} title="Actual size. Pinch or Ctrl+scroll to zoom; hold Space to move around.">
+              {zoom.percent}%
+            </button>
+            <button className="icon-button" onClick={() => zoom.zoomBy(1.25)} aria-label="Zoom in" title="Zoom in (+)">
+              <Icon name="plus" />
+            </button>
+            <button className={`zoom-fit ${zoom.isFit ? 'on' : ''}`} onClick={zoom.fit} title="Fit width (Ctrl+0)">Fit</button>
+          </div>
+        </div>
+
+        {(hint || banner) && (
+          <div className={`canvas-note ${notice || (banner && !hint) ? 'warn' : ''}`} style={brushPart ? { ['--part' as string]: brushPart.color } : undefined}>
+            {hint ? (
+              <>
+                <span className={`note-mark ${brush !== undefined && tool === 'select' ? 'brush' : ''}`} />
+                <span className="grow">{hint}</span>
+                <span className="muted">Esc to stop</span>
+              </>
             ) : (
-              <button className="button primary" onClick={() => setStep('export')}>
-                All checked · Export <Icon name="chevronRight" />
+              banner && (
+                <>
+                  <Icon name="alert" />
+                  <span className="grow">{banner.message}</span>
+                  <button className="text-button" onClick={() => edit({ type: 'dismissIssue', id: banner.id })}>Dismiss</button>
+                </>
+              )
+            )}
+          </div>
+        )}
+
+        <div className="canvas-body">
+          <nav className="tool-strip" aria-label="Tools">
+            {TOOLS.map((item) => (
+              <button
+                key={item.tool}
+                className={tool === item.tool && (item.tool !== 'select' || brush === undefined) ? 'on' : ''}
+                aria-pressed={tool === item.tool}
+                aria-label={item.label}
+                data-tip={`${item.label} · ${item.key}`}
+                onClick={() => pickTool(item.tool)}
+              >
+                <Icon name={item.icon} size={18} />
               </button>
+            ))}
+            {brush !== undefined && (
+              <span className="tool-brush" style={{ ['--part' as string]: brushPart?.color ?? 'transparent' }} title="Painting">
+                <Icon name="brush" size={18} />
+              </span>
             )}
+          </nav>
+
+          <div
+            className={`scroller ${zoom.panReady ? 'pan-ready' : ''} ${zoom.panning ? 'panning' : ''}`}
+            ref={scroller}
+            {...zoom.panHandlers}
+          >
+            <PageView
+              pageIndex={pageIndex}
+              width={zoom.pageWidth}
+              selection={selection}
+              tool={tool}
+              onSelectStaff={selectStaff}
+              onSelectSystem={(systemId, additive) =>
+                setSelection((current) => ({
+                  systemIds: additive ? [...new Set([...current.systemIds, systemId])] : [systemId],
+                  staffId: null,
+                  regionId: null,
+                }))
+              }
+              onOpenPicker={(systemId, staffId, anchor) => setPicker({ systemId, staffId, anchor })}
+              onSelectRegion={(id) => setSelection({ systemIds: [], staffId: null, regionId: id })}
+              onClear={() => setSelection(emptySelection)}
+              onToolDone={() => setTool('select')}
+              onNotice={setNotice}
+              brush={brush}
+            />
           </div>
+
+          {reviewing && (
+            <ReviewDock
+              pageIndex={pageIndex}
+              systemId={selection.systemIds[0] ?? null}
+              remaining={reviewCount}
+              onConfirm={() => {
+                const systemId = selection.systemIds[0];
+                if (systemId) edit({ type: 'confirmSystems', refs: [{ page: pageIndex, systemId }] });
+                goToReview(1);
+              }}
+              onSkip={() => goToReview(1)}
+              onClose={() => setReviewing(false)}
+              onFinish={() => {
+                setReviewing(false);
+                onExport();
+              }}
+            />
+          )}
         </div>
 
-        {tool !== 'select' && (
-          <div className={`tool-hint ${notice ? 'notice' : ''}`}>
-            {notice ??
-              (tool === 'text'
-                ? 'Drag boxes around text every part should get (tempo, rehearsal letters, titles). Overlapping boxes join into one shape. Alt-drag cuts a piece out. Esc or V when you’re done.'
-                : tool === 'partText'
-                  ? 'Drag a box over text that belongs to one part (a dynamic, high notes). It must touch that part’s staff area. It’s added to that part and cut out of the others. Alt-drag cuts. Esc when done.'
-                  : 'Click where a staff was missed to add one. Shift-click adds a 1-line percussion staff. Esc to cancel.')}
-          </div>
-        )}
-
-        {banner && (
-          <div className="banner">
-            <Icon name="alert" />
-            <span>{banner.message}</span>
-            <button className="button small" onClick={() => setStep('setup')}>Edit parts</button>
-            {banner.kind === 'part-count' && (
-              <button className="button small ghost" onClick={() => edit({ type: 'dismissIssue', id: banner.id })}>Dismiss</button>
-            )}
-          </div>
-        )}
-
-        <div
-          className={`scroller ${zoom.panReady ? 'pan-ready' : ''} ${zoom.panning ? 'panning' : ''}`}
-          ref={scroller}
-          {...zoom.panHandlers}
-        >
-          <PageView
-            pageIndex={pageIndex}
-            width={pageWidth}
-            selection={selection}
-            tool={tool}
-            onSelectStaff={selectStaff}
-            onSelectSystem={(systemId, additive) =>
-              setSelection((current) => ({
-                systemIds: additive ? [...new Set([...current.systemIds, systemId])] : [systemId],
-                staffId: null,
-                regionId: null,
-              }))
-            }
-            onOpenPicker={(systemId, staffId, anchor) => setPicker({ systemId, staffId, anchor })}
-            onSelectRegion={(id) => setSelection({ systemIds: [], staffId: null, regionId: id })}
-            onClear={() => setSelection(emptySelection)}
-            onToolDone={() => setTool('select')}
-            onNotice={setNotice}
-          />
-        </div>
+        <PageRail current={pageIndex} onSelect={goToPage} />
       </section>
 
       <Inspector

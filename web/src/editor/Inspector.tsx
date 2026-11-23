@@ -284,9 +284,10 @@ export function Inspector({ pageIndex, selection, setSelection, setTool, issues,
   }
 
   // ---------- nothing selected: page overview ----------
-  const review = page?.systems.filter((s) => s.status === 'review').length ?? 0;
+  const review = doc.parts.length === 0 ? 0 : page?.systems.filter((s) => s.status === 'review').length ?? 0;
   const suggestions = doc.regions.filter((r) => r.page === pageIndex && r.suggested).length;
-  const globalIssues = issues.filter((issue) => !issue.systemId);
+  // "Add your parts" is already obvious from the Ensemble panel.
+  const globalIssues = issues.filter((issue) => !issue.systemId && issue.kind !== 'no-parts');
 
   return (
     <aside className="inspector">

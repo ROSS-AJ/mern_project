@@ -28,6 +28,11 @@ interface Props {
   onToolDone: () => void;
   /** Short message for the user (e.g. a part-text box that touches no staff). */
   onNotice: (message: string) => void;
+  /**
+   * The player picked in the Ensemble panel. Clicking a staff paints it with
+   * that player. null = nobody (leave out); undefined = no brush.
+   */
+  brush?: Id | null;
 }
 
 // Colors come from the stylesheet's tokens, so the page and the panels always match.
@@ -101,6 +106,13 @@ export function PageView(props: Props) {
   const [draft, setDraft] = useState<{ x0: number; y0: number; x1: number; y1: number; cut: boolean } | null>(null);
   // A part-text box that touches several parts' staffs: ask which part.
   const [partChoice, setPartChoice] = useState<{ rect: Rect; partIds: Id[]; anchor: DOMRect } | null>(null);
+
+  /** Paint a staff with the picked player. Returns false when no player is picked. */
+  const paint = (systemId: Id, staffId: Id): boolean => {
+    if (props.brush === undefined) return false;
+    edit({ type: 'assignStaff', page: pageIndex, systemId, staffId, partId: props.brush });
+    return true;
+  };
 
   const drawRegion = (draftRegion: Region) => {
     const id = mergeTargetId(doc, draftRegion);
@@ -192,6 +204,8 @@ export function PageView(props: Props) {
   if (!page) return null;
 
   const regions = doc.regions.filter((region) => region.page === pageIndex);
+  // Before any players exist nothing can be "wrong" yet, so don't flag systems.
+  const shownStatus = (status: string) => (parts.length === 0 ? 'auto' : status);
   const regionColor = (region: Region) =>
     region.kind === 'staff' ? partById.get(region.partId ?? '')?.color ?? 'var(--text-tertiary)' : SHARED_COLOR;
   const selectedSystems = new Set(selection.systemIds);
@@ -206,7 +220,7 @@ export function PageView(props: Props) {
             <div key={system.id}>
               <button
                 id={`sys-${system.id}`}
-                className={`system-badge ${system.status} ${selectedSystems.has(system.id) ? 'selected' : ''}`}
+                className={`system-badge ${shownStatus(system.status)} ${selectedSystems.has(system.id) ? 'selected' : ''}`}
                 style={{ top: Math.max(0, bounds.above * H) }}
                 onClick={(event) => props.onSelectSystem(system.id, event.shiftKey)}
                 title={
@@ -231,6 +245,7 @@ export function PageView(props: Props) {
                     className={`part-tag ${part ? '' : 'unassigned'} ${continued ? 'continued' : ''} ${selected ? 'selected' : ''}`}
                     style={{ top: center - 12, ['--part' as string]: part?.color ?? 'var(--gray-400)' }}
                     onClick={(event) => {
+                      if (paint(system.id, staff.id)) return;
                       props.onSelectStaff(system.id, staff.id, event.shiftKey);
                       props.onOpenPicker(system.id, staff.id, event.currentTarget.getBoundingClientRect());
                     }}
@@ -269,7 +284,8 @@ export function PageView(props: Props) {
 
         <svg
           ref={svgRef}
-          className={`overlay tool-${tool}`}
+          className={`overlay tool-${tool} ${props.brush !== undefined && tool === 'select' ? 'painting' : ''}`}
+          style={props.brush ? { ['--brush' as string]: partById.get(props.brush)?.color } : undefined}
           width={W}
           height={H}
           viewBox={`0 0 ${W} ${H}`}
@@ -311,7 +327,10 @@ export function PageView(props: Props) {
                           height={Math.max(0, (bottom - top) * H)}
                           fill={part ? part.color : 'url(#hatch)'}
                           fillOpacity={part ? (isSelected ? 0.26 : selected ? 0.16 : 0.1) : 1}
-                          onClick={(event) => tool === 'select' && props.onSelectStaff(system.id, staff.id, event.shiftKey)}
+                          onClick={(event) => {
+                            if (tool !== 'select' || paint(system.id, staff.id)) return;
+                            props.onSelectStaff(system.id, staff.id, event.shiftKey);
+                          }}
                         />
                         {Array.from({ length: staff.lineCount }, (_, line) => (
                           <line
@@ -337,7 +356,7 @@ export function PageView(props: Props) {
                     );
                   })}
                   <rect
-                    className={`system-outline status-${system.status}`}
+                    className={`system-outline status-${shownStatus(system.status)}`}
                     x={1}
                     y={above * H}
                     width={W - 2}

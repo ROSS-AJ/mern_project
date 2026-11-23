@@ -10,8 +10,6 @@ interface Props {
   error: string | null;
 }
 
-const STEP_LABEL = { setup: 'Parts', assign: 'Assigning', export: 'Ready to export' } as const;
-
 function timeAgo(time: number): string {
   const minutes = Math.round((Date.now() - time) / 60_000);
   if (minutes < 1) return 'just now';
@@ -73,35 +71,39 @@ export function Home({ onContinue, onCreate, error }: Props) {
       </header>
 
       <main className="home-main">
-        <h1>Split a score into parts</h1>
-        <p className="lede">
-          Open a PDF score. Partwise finds every staff and system, you say who plays what, and it builds a PDF for each player.
-        </p>
+        <section className="home-hero">
+          <span className="eyebrow">Score to parts</span>
+          <h1>Every player, their own&nbsp;part.</h1>
+          <p className="lede">Open a full score, tell Partwise who’s playing, and get a clean part for every musician.</p>
+          <ol className="movements">
+            <li><span className="numeral">I</span><span><strong>Who’s playing</strong>List the players in score order.</span></li>
+            <li><span className="numeral">II</span><span><strong>Check the music</strong>Partwise finds every staff; you confirm the few it’s unsure about.</span></li>
+            <li><span className="numeral">III</span><span><strong>Get the parts</strong>One PDF per player, ready to print.</span></li>
+          </ol>
+        </section>
 
-        {last && (
-          <section className="home-section">
-            <h2 className="section-label">Continue where you left off</h2>
-            <div className="file-row">
-              <span className="file-icon"><Icon name="file" /></span>
-              <span className="file-text">
-                <strong>{last.title || last.fileName}</strong>
-                <small>
-                  {last.pageCount} page{last.pageCount === 1 ? '' : 's'} · {last.parts.length} part{last.parts.length === 1 ? '' : 's'} ·{' '}
-                  {STEP_LABEL[last.step]} · edited {timeAgo(last.updatedAt)}
-                </small>
-              </span>
-              <button className="text-button" onClick={forget}>Remove</button>
-              <button className="button primary" onClick={onContinue}>
-                Continue <Icon name="chevronRight" size={14} />
-              </button>
+        <section className="home-side">
+          {last && (
+            <div className="resume">
+              <span className="eyebrow">Continue</span>
+              <div className="resume-card">
+                <span className="resume-icon"><Icon name="file" /></span>
+                <span className="resume-text">
+                  <strong>{last.title || last.fileName}</strong>
+                  <small>
+                    {last.parts.length} player{last.parts.length === 1 ? '' : 's'} · {last.pageCount} page{last.pageCount === 1 ? '' : 's'} · {timeAgo(last.updatedAt)}
+                  </small>
+                </span>
+                <button className="text-button" onClick={forget}>Remove</button>
+                <button className="button primary" onClick={onContinue}>
+                  Open <Icon name="chevronRight" size={14} />
+                </button>
+              </div>
             </div>
-          </section>
-        )}
+          )}
 
-        <section className="home-section">
-          <h2 className="section-label">{last ? 'Start a new score' : 'Start'}</h2>
           <div
-            className={`dropzone ${dragging ? 'dragging' : ''}`}
+            className={`sheet ${dragging ? 'dragging' : ''}`}
             onDragOver={(event) => {
               event.preventDefault();
               setDragging(true);
@@ -110,29 +112,35 @@ export function Home({ onContinue, onCreate, error }: Props) {
             onDrop={(event) => {
               event.preventDefault();
               setDragging(false);
-              pick(event.dataTransfer.files[0]);
+              void pick(event.dataTransfer.files[0]);
             }}
           >
-            <Icon name="upload" size={18} />
-            <span>Drop a PDF here, or</span>
-            <button className="button" disabled={busy} onClick={() => input.current?.click()}>
-              {busy ? 'Opening…' : 'Choose file'}
-            </button>
+            <div className="sheet-staves" aria-hidden="true">
+              {Array.from({ length: 6 }, (_, i) => (
+                <span key={i} />
+              ))}
+            </div>
+            <div className="sheet-content">
+              <span className="sheet-icon"><Icon name="upload" size={20} /></span>
+              <strong>{last ? 'Start a new score' : 'Drop your score here'}</strong>
+              <span className="muted">PDF, scanned or digital</span>
+              <button className="button primary large" disabled={busy} onClick={() => input.current?.click()}>
+                {busy ? 'Opening…' : 'Choose a PDF'}
+              </button>
+            </div>
             <input
               ref={input}
               type="file"
               accept="application/pdf,.pdf"
               hidden
               onChange={(event) => {
-                pick(event.target.files?.[0]);
+                void pick(event.target.files?.[0]);
                 event.target.value = '';
               }}
             />
           </div>
           {error && <p className="error-text">{error}</p>}
-          <p className="fine-print">
-            Your current project is kept in this browser so you can come back to it. Sign in to keep a library of projects.
-          </p>
+          <p className="fine-print">Your current project stays in this browser. Sign in to keep a library.</p>
         </section>
       </main>
     </div>

@@ -21,7 +21,7 @@ The detection test page (overlays only, no editor) still runs with
 | `src/engine/` | Plain logic, no React. `detect.ts` finds lines, staffs and systems. `assign.ts` matches staffs to parts and repeats confirmed layouts. `crop.ts` works out each part's bands and attaches shared text. `issues.ts` finds things to flag. `suggest.ts` suggests shared-text regions. |
 | `src/model/` | `types.ts` is the saved project format. `reducer.ts` holds every edit as a named action, with undo/redo. `storage.ts` keeps only the current project (and its PDF) in the browser so it can be continued; starting a new score replaces it. Signed-in users will get a project browser; put the API calls in this file. `parts.ts` has presets and instrument defaults. |
 | `src/pdf/` | pdf.js rendering, running detection per page, and pdf-lib export (vector crops, not screenshots). |
-| `src/editor/` | The screens: `PartSetup`, `AssignView` (with `PageView`, `PartPicker`, `Inspector`, `PageRail`) and `ExportView`. |
+| `src/editor/` | One workspace (`ProjectShell`): `EnsemblePanel` (players; pick one and click staves to assign them), `AssignView` (tool strip, score via `PageView`, `ReviewDock`, `PageRail` filmstrip) and `Inspector`. Parts open in a drawer (`ExportView`). Plus `Home`, `PartPicker` and `ConfirmDialog`. |
 
 To add a new kind of edit, add an action to `EditAction` in
 `src/model/reducer.ts` and a case in `applyEdit`. Undo and re-running
