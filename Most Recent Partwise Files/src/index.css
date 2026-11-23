@@ -628,3 +628,19 @@
     padding-top: 40px;
   }
 }
+
+/* ---------- links to the score editor (open to everyone) ---------- */
+.auth-divider { display: flex; align-items: center; gap: 10px; margin: 16px 0 12px; color: #a4a9a3; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+.auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: #e4e6e1; }
+.editor-link {
+  height: 45px; padding: 0 15px; border: 1px solid #cfd6d0; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: #fff; color: #242925; font-size: 12px; font-weight: 600; text-decoration: none; transition: border-color 0.2s, background 0.2s;
+}
+.editor-link span { color: #8b908c; font-weight: 500; }
+.editor-link:hover { border-color: #315f4e; background: #f6f8f6; }
+.dashboard-actions { display: flex; align-items: center; gap: 10px; }
+.dashboard-editor-link {
+  border: 1px solid #14385f; border-radius: 6px; padding: 9px 18px; background: #14385f; color: #fff;
+  font: inherit; text-decoration: none; transition: background 0.2s;
+}
+.dashboard-editor-link:hover { background: #0e2a48; }

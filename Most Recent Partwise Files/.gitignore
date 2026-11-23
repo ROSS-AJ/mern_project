@@ -19,3 +19,8 @@ logs/
 # beside it.
 /.plugins/
 /.opencode-skills/
+
+# The built score editor (web/: npm run build:site). Keep all of it, including
+# pdf.js's *.min.mjs worker, which the root .gitignore would otherwise skip.
+!public/editor/
+!public/editor/**
