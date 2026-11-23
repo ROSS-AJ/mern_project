@@ -3,6 +3,12 @@ import { useState, useEffect, useRef, type ReactNode, type FormEvent } from 'rea
 
 const API_BASE = 'https://lamp.rosslampdemo.com/mern/api'
 
+// The score editor (web/ in this repo). Anyone can use it, signed in or not.
+// Development: its own dev server. Production: served at /partwise/editor/
+// (web: npm run build:site puts it in public/editor). Override with VITE_EDITOR_URL.
+const EDITOR_URL: string =
+  import.meta.env.VITE_EDITOR_URL ?? (import.meta.env.DEV ? 'http://localhost:5173/' : '/partwise/editor/')
+
 type IconName =
   | 'arrowLeft'
   | 'chevronDown'
@@ -267,7 +273,11 @@ function AuthScreen({ onContinue }: { onContinue: () => void }) {
             </button>
           </form>
 
-          <button className="demo-link" onClick={onContinue}>View editor demo without signing in</button>
+          <div className="auth-divider"><span>or</span></div>
+          <a className="editor-link" href={EDITOR_URL}>
+            Open the editor <span>no account needed</span>
+            <Icon name="chevronRight" size={17}/>
+          </a>
         </div>
 
         <p className="auth-footer">© 2026 Partwise <span>Help</span><span>Privacy</span></p>
@@ -463,9 +473,14 @@ function DashboardScreen({ onLogout }: { onLogout: () => void }) {
           <span>Partwise</span>
         </div>
 
-        <button className="dashboard-logout" onClick={onLogout}>
-          Log out
-        </button>
+        <div className="dashboard-actions">
+          <a className="dashboard-editor-link" href={EDITOR_URL}>
+            Open editor
+          </a>
+          <button className="dashboard-logout" onClick={onLogout}>
+            Log out
+          </button>
+        </div>
       </header>
 
       <section className="dashboard-welcome">

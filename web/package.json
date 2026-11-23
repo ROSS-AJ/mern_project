@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
-    "test": "node --test src/engine/engine.test.ts"
+    "test": "node --test src/engine/engine.test.ts",
+    "build:site": "tsc -b && vite build --outDir \"../Most Recent Partwise Files/public/editor\" --emptyOutDir"
   },
   "dependencies": {
     "pdf-lib": "^1.17.1",

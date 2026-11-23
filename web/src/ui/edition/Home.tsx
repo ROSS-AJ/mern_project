@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { clearSaved, peekLastProject } from '../../model/storage.ts';
 import type { ProjectDoc } from '../../model/types.ts';
 import { confirmDialog } from '../shared/ConfirmDialog.tsx';
+import { SITE_URL } from '../../site.ts';
 import { Icon } from '../shared/Icon.tsx';
 
 interface Props {
@@ -68,6 +69,9 @@ export function Home({ onContinue, onCreate, error }: Props) {
           <span className="brand-mark"><Icon name="music" size={14} /></span>
           Partwise
         </div>
+        <a className="home-link" href={SITE_URL}>
+          Sign in
+        </a>
       </header>
 
       <main className="home-main">

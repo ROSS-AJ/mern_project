@@ -38,6 +38,22 @@ auto-assignment happen automatically.
 Coordinates are stored as fractions of the page, so nothing depends on render
 resolution.
 
+## On the Partwise website
+
+The editor is open to everyone; no account is needed. The main site
+(`Most Recent Partwise Files/`) links to it from the sign-in page ("Open the
+editor") and the dashboard ("Open editor"), and the editor links back to the
+site to sign in.
+
+- Development: run both dev servers. The site is at
+  http://localhost:8443/partwise/ and the editor at http://localhost:5173/.
+- Production: the editor is served at `/partwise/editor/`. Run
+  `npm run build:site` here before building the main site; it writes the
+  editor into `Most Recent Partwise Files/public/editor/`, so the main site's
+  build and deploy include it.
+- Different paths: set `VITE_EDITOR_URL` (main site), `VITE_SITE_URL` and
+  `EDITOR_BASE` (editor).
+
 ## Two designs
 
 Both designs run on the same engine, model and PDF code, and open the same
