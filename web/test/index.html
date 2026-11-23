@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Detection Test</title>
+<style>
+   :root{
+      --bg: #f4f4f2;
+      --panel: #ffffff;
+      --border: #dddcd8;
+      --text: #1d1d1b;
+      --muted: #6b6a66;
+      --accent: #2b5fd9;
+      --line: #e0201b;
+      --staff: #2b5fd9;
+      --system: #12925a;
+      --error: #b3261e;
+   }
+   *{ box-sizing: border-box; }
+   [hidden]{ display: none !important; }
+   html, body{ height: 100%; margin: 0; }
+   body{
+      background: var(--bg);
+      color: var(--text);
+      font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+      display: grid;
+      grid-template-rows: auto 1fr;
+   }
+   header{
+      display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
+      padding: 8px 16px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+   }
+   header h1{ font-size: 14px; margin: 0 8px 0 0; }
+   .group{ display: flex; align-items: center; gap: 6px; }
+   button, select, input{ font: inherit; color: inherit; }
+   button, select{
+      background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+      padding: 4px 10px; cursor: pointer;
+   }
+   button:hover:not(:disabled){ border-color: var(--muted); }
+   button:disabled{ opacity: .4; cursor: default; }
+   button.primary{ background: var(--accent); border-color: var(--accent); color: #fff; }
+   input[type=number]{
+      width: 64px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel);
+   }
+   label.toggle{ display: flex; align-items: center; gap: 4px; cursor: pointer; }
+   .swatch{ width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+   #fileName{ color: var(--muted); max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+   main{ display: grid; grid-template-columns: 1fr 320px; min-height: 0; }
+   #viewer{
+      overflow: auto; position: relative; padding: 16px;
+   }
+   #viewer.dragging{ outline: 3px dashed var(--accent); outline-offset: -8px; }
+   #empty{
+      height: 100%; display: grid; place-items: center; text-align: center; color: var(--muted);
+   }
+   #empty strong{ display: block; color: var(--text); font-size: 15px; margin-bottom: 4px; }
+   #stage{ position: relative; margin: 0 auto; box-shadow: 0 1px 4px rgba(0,0,0,.15); background: #fff; }
+   #stage canvas, #stage svg{ position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+   aside{
+      background: var(--panel); border-left: 1px solid var(--border);
+      overflow: auto; padding: 12px 16px;
+   }
+   aside h2{ font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 16px 0 6px; }
+   aside h2:first-child{ margin-top: 0; }
+   #status{ padding: 8px 10px; border-radius: 6px; background: var(--bg); }
+   #status.error{ color: var(--error); white-space: pre-wrap; }
+   dl.stats{ display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 8px 0 0; }
+   dl.stats dt{ color: var(--muted); }
+   dl.stats dd{ margin: 0; font-variant-numeric: tabular-nums; }
+   .settings{ display: grid; grid-template-columns: 1fr auto; gap: 6px 8px; align-items: center; }
+   .settings input[type=number]{ width: 80px; }
+   .settings select{ padding: 3px 6px; }
+   ol.systems{ margin: 0; padding-left: 20px; }
+   ol.systems li{ margin-bottom: 6px; }
+   ol.systems ul{ margin: 2px 0 0; padding-left: 16px; color: var(--muted); font-variant-numeric: tabular-nums; }
+   .hint{ color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+   <h1>Staff detection test</h1>
+
+   <div class="group">
+      <button class="primary" id="openButton">Open PDF</button>
+      <input type="file" id="fileInput" accept="application/pdf,.pdf" hidden>
+      <span id="fileName"></span>
+   </div>
+
+   <div class="group">
+      <button id="prevPage" disabled aria-label="Previous page">&#8592;</button>
+      <span>Page</span>
+      <input type="number" id="pageInput" min="1" value="1" disabled>
+      <span id="pageCount">of 0</span>
+      <button id="nextPage" disabled aria-label="Next page">&#8594;</button>
+   </div>
+
+   <div class="group">
+      <span>DPI</span>
+      <select id="dpiSelect">
+         <option>150</option>
+         <option>200</option>
+         <option selected>300</option>
+         <option>400</option>
+      </select>
+   </div>
+
+   <div class="group">
+      <span>Zoom</span>
+      <select id="zoomSelect">
+         <option value="fit" selected>Fit width</option>
+         <option value="0.25">25%</option>
+         <option value="0.5">50%</option>
+         <option value="1">100%</option>
+      </select>
+   </div>
+
+   <div class="group">
+      <label class="toggle"><input type="checkbox" id="showSystems" checked><span class="swatch" style="background:var(--system)"></span>Systems</label>
+      <label class="toggle"><input type="checkbox" id="showStaffs" checked><span class="swatch" style="background:var(--staff)"></span>Staffs</label>
+      <label class="toggle"><input type="checkbox" id="showLines" checked><span class="swatch" style="background:var(--line)"></span>Lines</label>
+   </div>
+</header>
+
+<main>
+   <section id="viewer">
+      <div id="empty">
+         <div><strong>Open a PDF to test detection</strong>Or drop one anywhere here. Use the arrow keys to change page.</div>
+      </div>
+      <div id="stage" hidden></div>
+   </section>
+
+   <aside>
+      <h2>Result</h2>
+      <div id="status">No PDF loaded.</div>
+      <dl class="stats" id="stats"></dl>
+
+      <h2>Settings</h2>
+      <div class="settings" id="settings">
+         <label for="s-thresholdMode">thresholdMode</label>
+         <select id="s-thresholdMode" data-key="thresholdMode">
+            <option value="manual">manual</option>
+            <option value="otsu">otsu</option>
+         </select>
+         <label for="s-threshold">threshold</label>
+         <input type="number" id="s-threshold" data-key="threshold" value="190" min="0" max="255" step="1">
+         <label for="s-thresholdOffset">thresholdOffset</label>
+         <input type="number" id="s-thresholdOffset" data-key="thresholdOffset" value="25" step="1">
+         <label for="s-deskew">deskew</label>
+         <input type="checkbox" id="s-deskew" data-key="deskew" checked>
+         <label for="s-verticalTolerance">verticalTolerance</label>
+         <input type="number" id="s-verticalTolerance" data-key="verticalTolerance" value="0" min="0" step="1">
+         <label for="s-gapTolerance">gapTolerance</label>
+         <input type="number" id="s-gapTolerance" data-key="gapTolerance" value="3" min="0" step="1">
+         <label for="s-minDensity">minDensity</label>
+         <input type="number" id="s-minDensity" data-key="minDensity" value="0.4" min="0" max="1" step="0.05">
+         <label for="s-minRunLength">minRunLength</label>
+         <input type="number" id="s-minRunLength" data-key="minRunLength" value="0.4" min="0" max="1" step="0.05">
+         <label for="s-minRunDensity">minRunDensity</label>
+         <input type="number" id="s-minRunDensity" data-key="minRunDensity" value="0.85" min="0" max="1" step="0.05">
+      </div>
+      <p class="hint">Changing a setting re-runs detection on the current page without re-rendering it. Defaults match <code>defaultSettings</code> in detect.ts.</p>
+
+      <h2>Systems</h2>
+      <ol class="systems" id="systemList"></ol>
+   </aside>
+</main>
+
+<script type="module">
+import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs';
+import { detect } from '/src/engine/detect.ts';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+   'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs';
+
+// PDF pages are measured in points, 72 per inch. So 300 dpi = scale 300/72.
+const POINTS_PER_INCH = 72;
+
+// Canvases past these limits silently render blank or patchy (Safari caps
+// total area at ~16.7M pixels, Chrome/Firefox cap each side). If a page would
+// exceed them, the DPI is lowered just enough to fit and the real DPI is shown.
+const MAX_CANVAS_AREA = 16_777_216;
+const MAX_CANVAS_SIDE = 16_384;
+
+const $ = (id) => document.getElementById(id);
+const viewer = $('viewer');
+const stage = $('stage');
+
+let pdf = null;
+let pageNumber = 1;
+let renderTask = null;
+let renderToken = 0;
+let pageCanvas = null;
+let pixels = null;
+let effectiveDpi = 0;
+let result = null;
+
+// ---------- Loading ----------
+
+$('openButton').addEventListener('click', () => $('fileInput').click());
+$('fileInput').addEventListener('change', (event) => {
+   const file = event.target.files[0];
+   if (file) openFile(file);
+   event.target.value = '';
+});
+
+viewer.addEventListener('dragover', (event) => { event.preventDefault(); viewer.classList.add('dragging'); });
+viewer.addEventListener('dragleave', () => viewer.classList.remove('dragging'));
+viewer.addEventListener('drop', (event) => {
+   event.preventDefault();
+   viewer.classList.remove('dragging');
+   const file = event.dataTransfer.files[0];
+   if (file) openFile(file);
+});
+
+async function openFile(file) {
+   setStatus(`Loading ${file.name}…`);
+   try {
+      const data = new Uint8Array(await file.arrayBuffer());
+      if (pdf) await pdf.destroy();
+      pdf = await pdfjsLib.getDocument({ data }).promise;
+   } catch (error) {
+      setStatus(`Could not open PDF: ${error.message}`, true);
+      return;
+   }
+   $('fileName').textContent = file.name;
+   $('fileName').title = file.name;
+   $('pageCount').textContent = `of ${pdf.numPages}`;
+   $('pageInput').max = pdf.numPages;
+   $('empty').hidden = true;
+   stage.hidden = false;
+   goToPage(1);
+}
+
+// ---------- Paging ----------
+
+$('prevPage').addEventListener('click', () => goToPage(pageNumber - 1));
+$('nextPage').addEventListener('click', () => goToPage(pageNumber + 1));
+$('pageInput').addEventListener('change', (event) => goToPage(Number(event.target.value)));
+$('dpiSelect').addEventListener('change', () => { if (pdf) renderAndDetect(); });
+
+document.addEventListener('keydown', (event) => {
+   if (!pdf || event.target.matches('input, select')) return;
+   if (event.key === 'ArrowLeft') goToPage(pageNumber - 1);
+   if (event.key === 'ArrowRight') goToPage(pageNumber + 1);
+});
+
+function goToPage(number) {
+   if (!pdf) return;
+   pageNumber = Math.min(pdf.numPages, Math.max(1, Math.round(number) || 1));
+   $('pageInput').value = pageNumber;
+   $('pageInput').disabled = false;
+   $('prevPage').disabled = pageNumber <= 1;
+   $('nextPage').disabled = pageNumber >= pdf.numPages;
+   renderAndDetect();
+}
+
+// ---------- Rasterizing ----------
+
+async function renderPage(number, dpi) {
+   // Only one render may draw at a time; a second render into the same canvas
+   // while the first is still running is what produces patchy pages. Cancel
+   // the old one and always draw into a fresh canvas.
+   if (renderTask) renderTask.cancel();
+   const token = ++renderToken;
+
+   const page = await pdf.getPage(number);
+   let scale = dpi / POINTS_PER_INCH;
+   let viewport = page.getViewport({ scale });
+
+   const area = viewport.width * viewport.height;
+   const shrink = Math.min(
+      1,
+      Math.sqrt(MAX_CANVAS_AREA / area),
+      MAX_CANVAS_SIDE / viewport.width,
+      MAX_CANVAS_SIDE / viewport.height
+   );
+   if (shrink < 1) {
+      scale *= shrink * 0.999;
+      viewport = page.getViewport({ scale });
+   }
+
+   const canvas = document.createElement('canvas');
+   canvas.width = Math.floor(viewport.width);
+   canvas.height = Math.floor(viewport.height);
+
+   // alpha: false + a white fill means transparent areas of the PDF come out
+   // as paper, not as transparent (black once read back) pixels.
+   const context = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
+   context.fillStyle = '#ffffff';
+   context.fillRect(0, 0, canvas.width, canvas.height);
+
+   renderTask = page.render({
+      canvasContext: context,
+      viewport,
+      background: 'rgb(255,255,255)',
+      intent: 'print',
+   });
+
+   try {
+      await renderTask.promise;
+   } catch (error) {
+      if (error?.name === 'RenderingCancelledException') return null;
+      throw error;
+   } finally {
+      page.cleanup();
+   }
+
+   // A newer render started while this one was finishing.
+   if (token !== renderToken) return null;
+   renderTask = null;
+
+   return { canvas, context, dpi: scale * POINTS_PER_INCH };
+}
+
+async function renderAndDetect() {
+   const number = pageNumber;
+   const dpi = Number($('dpiSelect').value);
+   setStatus(`Rendering page ${number} at ${dpi} dpi…`);
+
+   let rendered;
+   try {
+      rendered = await renderPage(number, dpi);
+   } catch (error) {
+      setStatus(`Render failed: ${error.message}`, true);
+      return;
+   }
+   if (!rendered) return;
+
+   pageCanvas = rendered.canvas;
+   effectiveDpi = rendered.dpi;
+   const image = rendered.context.getImageData(0, 0, pageCanvas.width, pageCanvas.height);
+   pixels = { data: image.data, width: image.width, height: image.height };
+
+   stage.replaceChildren(pageCanvas);
+   applyZoom();
+   runDetection();
+}
+
+// ---------- Detection ----------
+
+function readSettings() {
+   const settings = {};
+   for (const input of document.querySelectorAll('#settings [data-key]')) {
+      const key = input.dataset.key;
+      if (input.type === 'checkbox') settings[key] = input.checked;
+      else if (input.tagName === 'SELECT') settings[key] = input.value;
+      else settings[key] = Number(input.value);
+   }
+   return settings;
+}
+
+let settingsTimer = 0;
+$('settings').addEventListener('input', () => {
+   clearTimeout(settingsTimer);
+   settingsTimer = setTimeout(() => { if (pixels) runDetection(); }, 250);
+});
+
+function runDetection() {
+   setStatus('Detecting…');
+   // Let the status paint before the (synchronous) detection blocks the page.
+   requestAnimationFrame(() => setTimeout(() => {
+      const start = performance.now();
+      try {
+         // detect() only reads the pixels, but hand it a copy to be safe.
+         const copy = { data: new Uint8ClampedArray(pixels.data), width: pixels.width, height: pixels.height };
+         result = detect(copy, readSettings());
+      } catch (error) {
+         result = null;
+         drawOverlay();
+         setStatus(`detect() threw: ${error.stack ?? error.message}`, true);
+         return;
+      }
+      const ms = performance.now() - start;
+      drawOverlay();
+      showResult(ms);
+   }, 0));
+}
+
+// ---------- Drawing ----------
+
+const SVG = 'http://www.w3.org/2000/svg';
+
+// Same as --system / --staff / --line in the CSS. SVG attributes can't read CSS variables.
+const COLORS = { system: '#12925a', staff: '#2b5fd9', line: '#e0201b' };
+
+function svgElement(name, attributes) {
+   const element = document.createElementNS(SVG, name);
+   for (const [key, value] of Object.entries(attributes)) element.setAttribute(key, value);
+   return element;
+}
+
+function drawOverlay() {
+   stage.querySelector('svg')?.remove();
+   if (!result || !pageCanvas) return;
+
+   const width = result.imageWidth;
+   const height = result.imageHeight;
+   const svg = svgElement('svg', { viewBox: `0 0 ${width} ${height}`, preserveAspectRatio: 'none' });
+
+   // Detection runs on the deskewed image, but the canvas shows the original.
+   // detect() rotates the page by +angle around its center, so rotate the
+   // overlay back by -angle to line it up with what's on screen.
+   const layer = svgElement('g', { transform: `rotate(${-result.angle} ${width / 2} ${height / 2})` });
+   svg.append(layer);
+
+   const showSystems = $('showSystems').checked;
+   const showStaffs = $('showStaffs').checked;
+   const showLines = $('showLines').checked;
+   const fontSize = Math.max(14, width / 90);
+
+   result.systems.forEach((system, systemIndex) => {
+      const spacing = system.staffs[0]?.spacing || 10;
+
+      if (showSystems) {
+         const pad = spacing * 1.5;
+         layer.append(svgElement('rect', {
+            x: 0, y: system.top - pad, width, height: system.bottom - system.top + pad * 2,
+            fill: COLORS.system, 'fill-opacity': 0.08,
+            stroke: COLORS.system, 'stroke-width': 2, 'vector-effect': 'non-scaling-stroke',
+         }));
+         const label = svgElement('text', {
+            x: fontSize * 0.4, y: system.top - pad + fontSize * 1.1,
+            fill: COLORS.system, 'font-size': fontSize, 'font-weight': 700, 'font-family': 'system-ui, sans-serif',
+         });
+         label.textContent = `S${systemIndex + 1}`;
+         layer.append(label);
+      }
+
+      system.staffs.forEach((staff, staffIndex) => {
+         if (showStaffs) {
+            const pad = staff.spacing * 0.5;
+            layer.append(svgElement('rect', {
+               x: width * 0.01, y: staff.top - pad, width: width * 0.98, height: staff.bottom - staff.top + pad * 2,
+               fill: 'none', stroke: COLORS.staff, 'stroke-width': 1.5,
+               'stroke-dasharray': '6 4', 'vector-effect': 'non-scaling-stroke',
+            }));
+            const label = svgElement('text', {
+               x: width * 0.99, y: staff.top - pad - fontSize * 0.25, 'text-anchor': 'end',
+               fill: COLORS.staff, 'font-size': fontSize * 0.8, 'font-weight': 600, 'font-family': 'system-ui, sans-serif',
+            });
+            label.textContent = `${systemIndex + 1}.${staffIndex + 1}${staff.lines.length === 1 ? ' perc' : ''}`;
+            layer.append(label);
+         }
+
+         if (showLines) {
+            for (const line of staff.lines) {
+               layer.append(svgElement('line', {
+                  x1: 0, x2: width, y1: line.y, y2: line.y,
+                  stroke: COLORS.line, 'stroke-width': 1, 'stroke-opacity': 0.85,
+                  'vector-effect': 'non-scaling-stroke',
+               }));
+            }
+         }
+      });
+   });
+
+   stage.append(svg);
+}
+
+for (const id of ['showSystems', 'showStaffs', 'showLines']) {
+   $(id).addEventListener('change', drawOverlay);
+}
+
+// ---------- Zoom ----------
+
+$('zoomSelect').addEventListener('change', applyZoom);
+window.addEventListener('resize', () => { if ($('zoomSelect').value === 'fit') applyZoom(); });
+
+function applyZoom() {
+   if (!pageCanvas) return;
+   const choice = $('zoomSelect').value;
+   const available = viewer.clientWidth - 32;
+   const scale = choice === 'fit' ? available / pageCanvas.width : Number(choice);
+   stage.style.width = `${pageCanvas.width * scale}px`;
+   stage.style.height = `${pageCanvas.height * scale}px`;
+}
+
+// ---------- Side panel ----------
+
+function setStatus(message, isError = false) {
+   const status = $('status');
+   status.textContent = message;
+   status.classList.toggle('error', isError);
+}
+
+function showResult(ms) {
+   const staffs = result.systems.flatMap((system) => system.staffs);
+   const percussion = staffs.filter((staff) => staff.lines.length === 1).length;
+   const requestedDpi = Number($('dpiSelect').value);
+
+   setStatus(`Page ${pageNumber}: ${result.systems.length} systems, ${staffs.length} staffs.`);
+
+   const rows = [
+      ['Image', `${result.imageWidth} × ${result.imageHeight}px`],
+      ['DPI', effectiveDpi < requestedDpi - 0.5
+         ? `${effectiveDpi.toFixed(0)} (lowered from ${requestedDpi} to fit canvas limits)`
+         : `${requestedDpi}`],
+      ['Deskew angle', `${result.angle.toFixed(3)}°`],
+      ['Threshold used', `${result.threshold}`],
+      ['Staffs', `${staffs.length}${percussion ? ` (${percussion} percussion)` : ''}`],
+      ['Time', `${ms.toFixed(0)} ms`],
+   ];
+   $('stats').replaceChildren(...rows.flatMap(([term, value]) => {
+      const dt = document.createElement('dt');
+      dt.textContent = term;
+      const dd = document.createElement('dd');
+      dd.textContent = value;
+      return [dt, dd];
+   }));
+
+   $('systemList').replaceChildren(...result.systems.map((system) => {
+      const item = document.createElement('li');
+      item.textContent = `${system.staffs.length} staff${system.staffs.length === 1 ? '' : 's'}, y ${system.top.toFixed(0)}–${system.bottom.toFixed(0)}`;
+      const list = document.createElement('ul');
+      for (const staff of system.staffs) {
+         const entry = document.createElement('li');
+         entry.textContent = staff.lines.length === 1
+            ? `percussion, y ${staff.top.toFixed(0)}`
+            : `5 lines, spacing ${staff.spacing.toFixed(1)}px`;
+         list.append(entry);
+      }
+      item.append(list);
+      return item;
+   }));
+}
+</script>
+</body>
+</html>
