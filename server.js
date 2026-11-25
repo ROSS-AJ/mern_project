@@ -7,7 +7,10 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 require('dotenv').config();
 
-const { User } = require('./models');
+const { User, Project } = require('./models');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 // --- Database -------------------------------------------------------------
 const url = process.env.MONGODB_URI || 'mongodb://localhost:27017/CardsDB';
@@ -80,6 +83,49 @@ const app = express();
 app.use(cors());
 // Turn JSON request bodies into a JavaScript object at req.body
 app.use(express.json());
+
+// --- PDF Upload Setup ----------------------------------------------------
+const uploadDir = path.join(__dirname, 'uploads');
+fs.mkdirSync(uploadDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, `${crypto.randomUUID()}.pdf`);
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 25 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype !== 'application/pdf' ||
+        path.extname(file.originalname).toLowerCase() !== '.pdf') {
+      return cb(new Error('Only PDF files are allowed'));
+    }
+    cb(null, true);
+  }
+});
+
+// --- Authentication ------------------------------------------------------
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.userId = decoded.id;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+}
 
 // GET api check
 app.get('/api/ping', (req, res) => {
@@ -288,6 +334,107 @@ app.post('/api/reset-password', async (req, res) => {
   res.status(200).json({ message: 'Password updated', error: '' });
 });
 
+
+// --- Project Upload ------------------------------------------------------
+app.post('/api/projects', authenticateToken, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Please select a PDF file' });
+    }
+
+    const project = await Project.create({
+      user: req.userId,
+      originalName: req.file.originalname,
+      storedName: req.file.filename,
+      mimeType: req.file.mimetype,
+      size: req.file.size
+    });
+
+    res.status(201).json({
+      message: 'PDF uploaded successfully',
+      project: {
+        id: project._id,
+        originalName: project.originalName,
+        size: project.size,
+        createdAt: project.createdAt
+      }
+    });
+  } catch (err) {
+    if (req.file) {
+      fs.unlink(req.file.path, () => {});
+    }
+    res.status(500).json({ error: 'Failed to save project' });
+  }
+});
+
+// --- Get User Projects ---------------------------------------------------
+app.get('/api/projects', authenticateToken, async (req, res) => {
+  try {
+    const projects = await Project.find({ user: req.userId })
+      .select('-storedName -user')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ projects });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to retrieve projects' });
+  }
+});
+
+// --- View Uploaded PDF ---------------------------------------------------
+app.get('/api/projects/:id/file', authenticateToken, async (req, res) => {
+  try {
+    const project = await Project.findOne({
+      _id: req.params.id,
+      user: req.userId
+    });
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const filePath = path.join(uploadDir, project.storedName);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${encodeURIComponent(project.originalName)}"`
+    );
+
+    res.sendFile(filePath);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to open PDF' });
+  }
+});
+
+// --- Delete Uploaded Project ---------------------------------------------
+app.delete('/api/projects/:id', authenticateToken, async (req, res) => {
+  try {
+    const project = await Project.findOne({
+      _id: req.params.id,
+      user: req.userId
+    });
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const filePath = path.join(uploadDir, project.storedName);
+
+    try {
+      await fs.promises.unlink(filePath);
+    } catch (err) {
+      if (err.code !== 'ENOENT') {
+        throw err;
+      }
+    }
+
+    await Project.deleteOne({ _id: project._id });
+
+    res.status(200).json({ message: 'Project deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete project' });
+  }
+});
 
 // Start listening only when run directly not when tes with require()
 if (require.main === module) {

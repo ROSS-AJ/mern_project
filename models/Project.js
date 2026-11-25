@@ -2,51 +2,30 @@ const mongoose = require('mongoose');
 
 const projectSchema = new mongoose.Schema(
   {
-    // The owner. References a document in the users collection.
-    userId: {
+    user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: [true, 'userId is required'],
-      index: true
+      required: true
     },
-    title: {
+    originalName: {
       type: String,
-      required: [true, 'Title is required'],
-      trim: true
+      required: true
     },
-    // Path or URL to the PDF. The file itself is stored elsewhere
-    // (disk, object storage), not in MongoDB, handled in browser.
-    pdfLocation: {
+    storedName: {
       type: String,
-      default: null,
-      trim: true
+      required: true
     },
-    // Shape not decided yet, so this accepts any value (object or string).
-    // Tighten it once the frontend settles on a format.
-    pageLayout: {
-      type: mongoose.Schema.Types.Mixed,
-      default: null
+    mimeType: {
+      type: String,
+      default: 'application/pdf'
     },
-    pageCount: {
+    size: {
       type: Number,
-      default: 0,
-      min: 0
-    },
-    partNames: {
-      type: [String],
-      default: []
-    },
-    saveFormat: {
-      type: String,
-      enum: ['partwise'],
-      default: 'partwise',
-      trim: true,
-      lowercase: true 
+      required: true
     }
   },
   {
     collection: 'projects',
-    versionKey: false,
     timestamps: true
   }
 );
