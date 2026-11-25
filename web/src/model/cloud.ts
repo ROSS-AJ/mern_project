@@ -6,8 +6,7 @@
 import type { ProjectDoc } from './types.ts';
 import { writePartwiseFile, partwiseFileName } from './partwiseFile.ts';
 
-// Same address as the site and editor ('/api'); the old host builds with /mern/api.
-export const API_BASE: string = import.meta.env.VITE_API_URL ?? '/api';
+export const API_BASE: string = import.meta.env.VITE_API_URL ?? 'https://lamp.rosslampdemo.com/mern/api';
 
 /** Thrown when the sign-in has run out (the token lasts an hour). */
 export class SignedOutError extends Error {
@@ -16,23 +15,11 @@ export class SignedOutError extends Error {
   }
 }
 
-/** The site's sign-in token, or null if there's none or it has run out. */
 export function authToken(): string | null {
   try {
-    const token = localStorage.getItem('authToken');
-    return token && !tokenExpired(token) ? token : null;
+    return localStorage.getItem('authToken');
   } catch {
     return null;
-  }
-}
-
-/** Reads the expiry from the token itself (a JWT); it isn't checked, the server does that. */
-export function tokenExpired(token: string): boolean {
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as { exp?: number };
-    return typeof payload.exp === 'number' && payload.exp * 1000 <= Date.now();
-  } catch {
-    return true;
   }
 }
 

@@ -2,15 +2,14 @@
 // so links, reloads and the back button work.
 //
 // Paths here are written from the site's root ('/dashboard'); href() adds
-// the base the site is served under (BASE_URL: '/' on usepartwise.com,
-// '/partwise/' on the old host). The editor is a separate app at
-// `${BASE_URL}editor/`, so links to it are full page loads.
+// the base the site is served under (BASE_URL in vite.config.ts). The editor
+// is a separate app at /editor/, so links to it are full page loads.
 
 import { useEffect, useState } from 'react'
 
 const BASE = import.meta.env.BASE_URL
 
-/** Full address for a site path, e.g. '/login?next=/editor/' -> '/partwise/login?next=/editor/'. */
+/** Full address for a site path, with the base the site is served under. */
 export function href(path: string): string {
   return BASE + path.replace(/^\//, '')
 }

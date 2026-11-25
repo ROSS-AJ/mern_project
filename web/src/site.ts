@@ -2,8 +2,8 @@
 // no account: guests can always use it.
 //
 // The editor is served at <site>/editor/, so the site is one level up from
-// the editor's own address: '/' on usepartwise.com, '/partwise/' on the old
-// host. Override with VITE_SITE_URL if it's deployed somewhere else.
+// the editor's own address. Override with VITE_SITE_URL if it's deployed
+// somewhere else.
 export const SITE_URL: string = import.meta.env.VITE_SITE_URL ?? import.meta.env.BASE_URL.replace(/editor\/?$/, '');
 
 /** Sign in, then come back to the editor. */

@@ -3,10 +3,8 @@ import { useState, useEffect, useRef, type ReactNode, type FormEvent } from 'rea
 
 import { EDITOR_URL, Redirect, isSignedIn, navigate, safeNext, usePath } from './router'
 
-// The API, on the same address as the site ('/api'). Override with VITE_API_URL,
-// e.g. '/mern/api' on the old host. In development the dev server passes /api
-// on to a local server.js (vite.config.ts).
-const API_BASE: string = import.meta.env.VITE_API_URL ?? '/api'
+// Override with VITE_API_URL (e.g. a local server.js while developing)
+const API_BASE: string = import.meta.env.VITE_API_URL ?? 'https://lamp.rosslampdemo.com/mern/api'
 
 type IconName =
   | 'arrowLeft'

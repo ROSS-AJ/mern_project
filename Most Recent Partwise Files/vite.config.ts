@@ -11,14 +11,10 @@ import siteConfiguration from './.figma/make/site.json'
 export default defineConfig(({ mode }) => {
   // .figma/make/deploy-preview passes `--mode development` for cached-preview builds.
   const emitSourcemaps = mode === 'development'
-  // Addresses (usepartwise.com): site at /, editor at /editor/, API at /api.
-  // `npm run build:lamp` builds for the old host instead: site at /partwise/,
-  // API at /mern/api.
-  const oldHost = mode === 'lamp'
 
   return {
-    base: oldHost ? '/partwise/' : '/',
-    define: oldHost ? { 'import.meta.env.VITE_API_URL': JSON.stringify('/mern/api') } : {},
+    // Pages: /login, /register, /dashboard; the editor at /editor/
+    base: '/',
     build: {
       sourcemap: emitSourcemaps ? 'inline' : false,
       minify: !emitSourcemaps,
@@ -41,12 +37,11 @@ react(),
       host: process.env.FIGMA_DEV_SERVER_HOST || '0.0.0.0',
       port: parseInt(process.env.PORT || '8443'),
       strictPort: true,
-      // Like in production, the editor (web/, its own dev server on 5173) and
-      // the API (server.js, run locally on 5000 or set API_TARGET) appear on
-      // this address. Same address means the editor shares the sign-in.
+      // The score editor (web/, its own dev server on 5173) appears at
+      // /editor/ here too, like in production. Same address means it shares
+      // this site's sign-in, so projects open from the dashboard.
       proxy: {
         '/editor': { target: 'http://localhost:5173', ws: true },
-        '/api': { target: process.env.API_TARGET || 'http://localhost:5000' },
       },
       watch: {
         ignored: [

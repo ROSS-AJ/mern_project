@@ -40,34 +40,21 @@ resolution.
 
 ## On the Partwise website
 
-The editor is open to everyone; no account is needed. Addresses
-(usepartwise.com):
+The editor is open to everyone; no account is needed. The main site
+(`Most Recent Partwise Files/`) has the pages `/login`, `/register` and
+`/dashboard` (`/` goes to one of them); it links to the editor at `/editor/`,
+and the editor links back to `/login` and `/dashboard`.
 
-| Address | Page |
-|---|---|
-| `/` | No home page yet: goes to `/dashboard` if signed in, else `/login` |
-| `/login`, `/register` | Sign in / create an account (`?next=` says where to go afterwards) |
-| `/dashboard` | The signed-in user's projects (others are sent to `/login`) |
-| `/editor/` | This editor (`?project=<id>` opens a saved project) |
-| `/api/` | The API (`server.js`) |
-
-The main site (`Most Recent Partwise Files/`) has the pages; `src/router.tsx`
-there maps addresses to pages. The editor's links go to `/login?next=/editor/`
-and `/dashboard`.
-
-- **Development:** run `server.js` (port 5000, or set `API_TARGET`) and both
-  dev servers, then use http://localhost:8443/. The site's dev server passes
-  `/editor/` on to this one (port 5173) and `/api/` on to the API, so
-  everything shares one address and sign-in, like in production.
-- **Production:** run `npm run build:site` here, then `npm run build` in the
-  main site; copy its `dist/` to the web server. Apache setup:
-  `deploy/apache/usepartwise.com.conf` (repo root).
-- **The old host** (lamp.rosslampdemo.com/partwise/, API at `/mern/api`):
-  build with `npm run build:site:lamp` here and `npm run build:lamp` there;
-  Apache lines in `deploy/apache/lamp-partwise.conf`.
-- **Server settings:** on usepartwise.com set `FRONTEND_URL=https://usepartwise.com/`
-  and `PUBLIC_API_URL=https://usepartwise.com/api` in the server's `.env`
-  (they make the links in emails).
+- Development: run both dev servers and use the site at
+  http://localhost:8443/. Its dev server passes
+  `/editor/` on to the editor's (port 5173), so the editor shares the
+  site's address and sign-in, like in production.
+- Production: the editor is served at `/editor/`. Run
+  `npm run build:site` here before building the main site; it writes the
+  editor into `Most Recent Partwise Files/public/editor/`, so the main site's
+  build and deploy include it.
+- Different paths: set `VITE_EDITOR_URL` (main site), `VITE_SITE_URL` and
+  `EDITOR_BASE` (editor).
 
 ## Saving projects
 
@@ -97,9 +84,10 @@ API (all need `Authorization: Bearer <token>` from `/api/login`):
 | `GET /api/projects/:id/export` | Download as a `.partwise` file |
 | `DELETE /api/projects/:id` | Delete the project and its PDF |
 
-To try it locally, run `server.js` and the dev servers as above.
-`node scripts/seed-demo.mjs` (repo root) makes a demo account with sample
-projects; its login is in that script.
+To try it locally, run `server.js` and put `VITE_API_URL=http://localhost:5000/api`
+in `web/.env.development.local` and the main site's, then open the site at
+http://localhost:8443/. `node scripts/seed-demo.mjs` (repo root)
+makes a demo account with sample projects; its login is in that script.
 
 ## Two designs
 
