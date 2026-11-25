@@ -94,9 +94,9 @@ makes a demo account with sample projects; its login is in that script.
 Both designs run on the same engine, model and PDF code, and open the same
 saved project, so you can switch in the middle of working.
 
-- **Edition** (default): one workspace with the Ensemble, the score and a
+- **Edition**: one workspace with the Ensemble, the score and a
   parts drawer. `src/ui/edition/`
-- **Classic**: the original three steps (Parts, Assign, Export).
+- **Classic** (default): the original three steps (Parts, Assign, Export).
   `src/ui/classic/`
 
 Switch with the UI toggle in the bottom-left corner (shown in development),

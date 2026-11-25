@@ -55,7 +55,7 @@ export function initialDesign(): DesignName {
   } catch {
     // Storage can be unavailable (private mode); fall back to the default.
   }
-  return 'edition';
+  return 'classic';
 }
 
 export function saveDesign(name: DesignName): void {
