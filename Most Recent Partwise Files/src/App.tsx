@@ -1,14 +1,10 @@
 
 import { useState, useEffect, useRef, type ReactNode, type FormEvent } from 'react'
 
+import { EDITOR_URL, Redirect, isSignedIn, navigate, safeNext, usePath } from './router'
+
 // Override with VITE_API_URL (e.g. a local server.js while developing)
 const API_BASE: string = import.meta.env.VITE_API_URL ?? 'https://lamp.rosslampdemo.com/mern/api'
-
-// The score editor (web/ in this repo). Anyone can use it, signed in or not.
-// Served at /partwise/editor/: in production from public/editor (web: npm run
-// build:site), in development through this site's dev server, which passes it
-// on to the editor's own dev server (vite.config.ts). Override with VITE_EDITOR_URL.
-const EDITOR_URL: string = import.meta.env.VITE_EDITOR_URL ?? '/partwise/editor/'
 
 type IconName =
   | 'arrowLeft'
@@ -64,56 +60,35 @@ const players = [
   { name: 'Cello', color: '#4a9b72', checked: false },
 ]
 
-const noteSets = [
-  [12, 18, 32, 41, 53, 65, 74, 89, 98],
-  [8, 24, 35, 47, 60, 70, 85, 94],
-  [14, 27, 38, 50, 63, 77, 88, 97],
-]
-
-function Staff({ variant = 0 }: { variant?: number }) {
-  const notes = noteSets[variant % noteSets.length]
-  return (
-    <div className="staff">
-      <span className="clef">𝄞</span>
-      <span className="time-signature">3<br/>4</span>
-      {notes.map((left, i) => (
-        <span
-          key={`${left}-${i}`}
-          className={`note ${i % 3 === 0 ? 'stem-down' : ''}`}
-          style={{ left: `${left}%`, top: `${14 + ((i * 11 + variant * 7) % 33)}%` }}
-        />
-      ))}
-      {[26, 55, 81].map((left) => <span key={left} className="bar-line" style={{ left: `${left}%` }} />)}
-    </div>
-  )
+function signOut() {
+  localStorage.removeItem('authToken')
+  localStorage.removeItem('user')
 }
 
-function ScoreSystem({ index, selected, onSelect }: { index: number; selected: boolean; onSelect: () => void }) {
-  return (
-    <button className={`score-system ${selected ? 'selected' : ''}`} onClick={onSelect} aria-label={`Select system ${index + 1}`}>
-      <span className="system-label">{index + 1}</span>
-      <div className="brace">⎧<br/>⎨<br/>⎩</div>
-      <div className="staves">
-        <Staff variant={index} />
-        <Staff variant={index + 1} />
-        <Staff variant={index + 2} />
-        <Staff variant={index + 3} />
-      </div>
-      {selected && <span className="selection-tag">Violin I</span>}
-    </button>
-  )
-}
-
-function AuthScreen({ onContinue }: { onContinue: () => void }) {
-  const [mode, setMode] = useState<'signin' | 'register'>('signin')
+// /login and /register. ?next= is where to go after signing in (default: the dashboard).
+function AuthScreen({ mode }: { mode: 'signin' | 'register' }) {
+  const params = new URLSearchParams(window.location.search)
+  const next = safeNext(params.get('next'), '/dashboard')
+  const nextQuery = params.get('next') ? `?next=${encodeURIComponent(next)}` : ''
   const [showPassword, setShowPassword] = useState(false)
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [login, setLogin] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [authError, setAuthError] = useState('')
-  const [authMessage, setAuthMessage] = useState('')
+  // Arriving from the link in the verification email (server.js /api/verify)
+  const [authError, setAuthError] = useState(() =>
+    params.get('verified') === '0' ? 'That verification link is invalid or has expired. Sign in to get a new one.' : '',
+  )
+  const [authMessage, setAuthMessage] = useState(() =>
+    params.get('verified') === '1' ? 'Your email is verified. You can sign in now.' : '',
+  )
+
+  function switchMode(to: 'signin' | 'register') {
+    setAuthError('')
+    setAuthMessage('')
+    navigate(`${to === 'signin' ? '/login' : '/register'}${nextQuery}`, { replace: true })
+  }
   const [isLoading, setIsLoading] = useState(false)
   
   async function handleAuth(event: FormEvent<HTMLFormElement>) {
@@ -144,13 +119,13 @@ function AuthScreen({ onContinue }: { onContinue: () => void }) {
       }
 
       if (mode === 'register') {
-        setAuthMessage('Account created successfully! You can now sign in.')
-        setMode('signin')
         setPassword('')
+        navigate(`/login${nextQuery}`, { replace: true })
+        setAuthMessage(data.message || 'Account created. Check your email to verify it, then sign in.')
       } else {
         localStorage.setItem('authToken', data.token)
         localStorage.setItem('user', JSON.stringify(data))
-        onContinue()
+        navigate(next, { replace: true })
       }
     } catch (error) {
       setAuthError(
@@ -222,8 +197,8 @@ function AuthScreen({ onContinue }: { onContinue: () => void }) {
           </div>
 
           <div className="auth-tabs" role="tablist" aria-label="Account access">
-            <button className={mode === 'signin' ? 'active' : ''} onClick={() => { setMode('signin'); setAuthError(''); setAuthMessage('') }} role="tab" aria-selected={mode === 'signin'}>Sign in</button>
-            <button className={mode === 'register' ? 'active' : ''} onClick={() => { setMode('register'); setAuthError(''); setAuthMessage('') }} role="tab" aria-selected={mode === 'register'}>Register</button>
+            <button className={mode === 'signin' ? 'active' : ''} onClick={() => switchMode('signin')} role="tab" aria-selected={mode === 'signin'}>Sign in</button>
+            <button className={mode === 'register' ? 'active' : ''} onClick={() => switchMode('register')} role="tab" aria-selected={mode === 'register'}>Register</button>
           </div>
 
           <form className="auth-form" onSubmit={handleAuth}>
@@ -314,7 +289,7 @@ function projectDetails(project: Project, formatFileSize: (bytes: number) => str
   return details.join(' · ')
 }
 
-function DashboardScreen({ onLogout }: { onLogout: () => void }) {
+function DashboardScreen() {
   const [projects, setProjects] = useState<Project[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isUploading, setIsUploading] = useState(false)
@@ -337,6 +312,13 @@ function DashboardScreen({ onLogout }: { onLogout: () => void }) {
             Authorization: `Bearer ${token}`,
           },
         })
+
+        // The sign-in lasts an hour; after that, sign in again and come back
+        if (response.status === 401) {
+          signOut()
+          navigate('/login?next=/dashboard', { replace: true })
+          return
+        }
 
         const data = await response.json()
 
@@ -534,7 +516,13 @@ function DashboardScreen({ onLogout }: { onLogout: () => void }) {
           <a className="dashboard-editor-link" href={EDITOR_URL}>
             Open editor
           </a>
-          <button className="dashboard-logout" onClick={onLogout}>
+          <button
+            className="dashboard-logout"
+            onClick={() => {
+              signOut()
+              navigate('/login')
+            }}
+          >
             Log out
           </button>
         </div>
@@ -663,169 +651,22 @@ function DashboardScreen({ onLogout }: { onLogout: () => void }) {
   )
 }
 
-function PartwiseApp() {
-  const [view, setView] = useState<'auth' | 'dashboard' | 'editor'>('auth')
-  const [selectedSystem, setSelectedSystem] = useState(1)
-  const [selectedPlayers, setSelectedPlayers] = useState(['Violin I'])
-  const [scope, setScope] = useState<'player' | 'everyone'>('player')
-  const [page, setPage] = useState(12)
-  const [zoom, setZoom] = useState(82)
-  const [exported, setExported] = useState(false)
-
-  function togglePlayer(name: string) {
-    setSelectedPlayers((current) =>
-      current.includes(name) ? current.filter((player) => player !== name) : [...current, name],
-    )
-  }
-
-  if (view === 'auth') {
-    return <AuthScreen onContinue={() => setView('dashboard')} />
-  }
-
-  if (view === 'dashboard') {
-    return <DashboardScreen onLogout={() => setView('auth')} />
-  }
-
-  return (
-    <main className="app-shell">
-      <header className="topbar">
-        <div className="brand">
-          <div className="brand-mark"><Icon name="music" size={18}/></div>
-          <span>Partwise</span>
-        </div>
-        <div className="document-heading">
-          <button className="icon-button quiet" aria-label="Back to projects"><Icon name="arrowLeft" /></button>
-          <div>
-            <h1>Nocturne in E-flat</h1>
-            <p>Saved just now</p>
-          </div>
-        </div>
-        <div className="top-actions">
-          <button className="button secondary"><Icon name="eye"/> Preview parts</button>
-          <button className="button primary" onClick={() => setExported(true)}><Icon name="download"/> Export PDF</button>
-          <button className="avatar" aria-label="Account menu" onClick={() => setView('auth')}>AM</button>
-        </div>
-      </header>
-
-      <div className="workspace">
-        <aside className="project-sidebar">
-          <button className="new-project"><Icon name="plus"/> New score</button>
-          <div className="sidebar-section">
-            <div className="section-title"><span>YOUR SCORES</span><button aria-label="More score options"><Icon name="more"/></button></div>
-            <div className="project-search"><Icon name="search" size={16}/><input aria-label="Search scores" placeholder="Search scores"/></div>
-            <nav className="project-list">
-              {projects.map((project) => (
-                <button key={project.title} className={`project-item ${project.active ? 'active' : ''}`}>
-                  <span className="project-icon"><Icon name="file" size={16}/></span>
-                  <span><strong>{project.title}</strong><small>{project.meta}</small></span>
-                  {project.active && <Icon name="more" size={16}/>}
-                </button>
-              ))}
-            </nav>
-          </div>
-          <div className="sidebar-footer">
-            <div className="usage">
-              <div><span>Monthly pages</span><strong>18 / 50</strong></div>
-              <div className="usage-track"><span/></div>
-            </div>
-            <button className="upgrade"><Icon name="sparkles" size={17}/><span><strong>Unlock more pages</strong><small>Upgrade your plan</small></span></button>
-          </div>
-        </aside>
-
-        <section className="editor">
-          <div className="editor-toolbar">
-            <div className="step-status"><span className="step-check">1</span><span>Detect score</span><span className="step-line"/><span className="step-current">2</span><strong>Assign parts</strong><span className="step-line muted"/><span className="step-number">3</span><span>Review & export</span></div>
-            <div className="toolbar-controls">
-              <button className="tool-button" onClick={() => setZoom(Math.max(50, zoom - 10))} aria-label="Zoom out"><Icon name="zoomOut" size={17}/></button>
-              <span className="zoom-value">{zoom}%</span>
-              <button className="tool-button" onClick={() => setZoom(Math.min(120, zoom + 10))} aria-label="Zoom in"><Icon name="zoomIn" size={17}/></button>
-              <span className="toolbar-divider"/>
-              <button className="tool-button label"><Icon name="layers" size={17}/> Overlays <Icon name="chevronDown" size={14}/></button>
-            </div>
-          </div>
-
-          <div className="canvas">
-            <div className="paper-wrap" style={{ transform: `scale(${zoom / 82})` }}>
-              <article className="score-paper">
-                <div className="score-heading">
-                  <p>FRÉDÉRIC CHOPIN</p>
-                  <h2>Nocturne in E-flat Major</h2>
-                  <span>Op. 9, No. 2</span>
-                </div>
-                <div className="tempo">Andante <em>dolce</em></div>
-                {[0, 1, 2, 3].map((index) => (
-                  <ScoreSystem key={index} index={index} selected={selectedSystem === index} onSelect={() => setSelectedSystem(index)} />
-                ))}
-                <span className="page-number">12</span>
-              </article>
-            </div>
-            <div className="page-controls">
-              <button onClick={() => setPage(Math.max(1, page - 1))} aria-label="Previous page"><Icon name="chevronLeft" size={17}/></button>
-              <span>Page <strong>{page}</strong> of 24</span>
-              <button onClick={() => setPage(Math.min(24, page + 1))} aria-label="Next page"><Icon name="chevronRight" size={17}/></button>
-            </div>
-          </div>
-        </section>
-
-        <aside className="inspector">
-          <div className="inspector-header">
-            <div className="inspector-icon"><Icon name="music"/></div>
-            <div><span>SELECTED REGION</span><h2>System {selectedSystem + 1}</h2></div>
-          </div>
-          <div className="confidence"><span>Detection confidence</span><strong>98% <i>High</i></strong></div>
-
-          <section className="inspector-section">
-            <label>Who should receive this music?</label>
-            <div className="segment-control">
-              <button className={scope === 'player' ? 'active' : ''} onClick={() => setScope('player')}><Icon name="users" size={15}/> Players</button>
-              <button className={scope === 'everyone' ? 'active' : ''} onClick={() => setScope('everyone')}><Icon name="layers" size={15}/> Everyone</button>
-            </div>
-            {scope === 'player' ? (
-              <div className="player-list">
-                {players.map((player) => {
-                  const checked = selectedPlayers.includes(player.name)
-                  return (
-                    <button key={player.name} onClick={() => togglePlayer(player.name)} className="player-row">
-                      <span className={`checkbox ${checked ? 'checked' : ''}`}>{checked && '✓'}</span>
-                      <span className="color-dot" style={{ background: player.color }}/>
-                      <strong>{player.name}</strong>
-                    </button>
-                  )
-                })}
-              </div>
-            ) : (
-              <div className="everyone-note"><Icon name="layers"/><p><strong>Shared with every part</strong><span>Tempo, dynamics, and other common markings will appear for all players.</span></p></div>
-            )}
-          </section>
-
-          <section className="inspector-section border">
-            <div className="field-heading"><label>Region type</label><button>Change</button></div>
-            <div className="type-card"><span className="type-icon">𝄞</span><span><strong>Music staff</strong><small>4 connected staves</small></span></div>
-          </section>
-
-          <section className="inspector-section border tip">
-            <Icon name="sparkles" size={18}/>
-            <p><strong>Quick assignment</strong><span>Hold Shift and click multiple systems to assign them together.</span></p>
-          </section>
-
-          <div className="inspector-footer">
-            <button className="button apply"><span>Apply assignment</span><Icon name="chevronRight" size={17}/></button>
-            <p>{selectedPlayers.length || 4} {scope === 'everyone' ? 'players' : selectedPlayers.length === 1 ? 'player' : 'players'} selected</p>
-          </div>
-        </aside>
-      </div>
-
-      {exported && (
-        <div className="toast" role="status">
-          <span className="toast-icon"><Icon name="file" size={18}/></span>
-          <div><strong>Parts are ready to export</strong><p>4 player parts will be combined into one PDF.</p></div>
-          <button onClick={() => setExported(false)} aria-label="Dismiss">×</button>
-        </div>
-      )}
-    </main>
-  )
-}
-
 export default function App() {
-  return <PartwiseApp />
+  const path = usePath()
+
+  switch (path) {
+    case '/login':
+    case '/register': {
+      // Already signed in: skip the form
+      if (isSignedIn()) {
+        return <Redirect to={safeNext(new URLSearchParams(window.location.search).get('next'), '/dashboard')} />
+      }
+      return <AuthScreen mode={path === '/login' ? 'signin' : 'register'} />
+    }
+    case '/dashboard':
+      return isSignedIn() ? <DashboardScreen /> : <Redirect to="/login?next=/dashboard" />
+    default:
+      // No home page yet: / (and anything unknown) goes to the dashboard or sign-in
+      return <Redirect to={isSignedIn() ? '/dashboard' : '/login'} />
+  }
 }

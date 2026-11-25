@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { clearSaved, peekLastProject } from '../../model/storage.ts';
 import type { ProjectDoc } from '../../model/types.ts';
 import { confirmDialog } from '../shared/ConfirmDialog.tsx';
-import { SITE_URL } from '../../site.ts';
+import { DASHBOARD_URL, LOGIN_URL } from '../../site.ts';
 import { authToken } from '../../model/cloud.ts';
 import { Icon } from '../shared/Icon.tsx';
 
@@ -70,7 +70,7 @@ export function Home({ onContinue, onCreate, error }: Props) {
           <span className="brand-mark"><Icon name="music" size={14} /></span>
           Partwise
         </div>
-        <a className="home-link" href={SITE_URL}>
+        <a className="home-link" href={authToken() ? DASHBOARD_URL : LOGIN_URL}>
           {authToken() ? 'Your projects' : 'Sign in'}
         </a>
       </header>

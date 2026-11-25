@@ -41,15 +41,15 @@ resolution.
 ## On the Partwise website
 
 The editor is open to everyone; no account is needed. The main site
-(`Most Recent Partwise Files/`) links to it from the sign-in page ("Open the
-editor") and the dashboard ("Open editor"), and the editor links back to the
-site to sign in.
+(`Most Recent Partwise Files/`) has the pages `/login`, `/register` and
+`/dashboard` (`/` goes to one of them); it links to the editor at `/editor/`,
+and the editor links back to `/login` and `/dashboard`.
 
 - Development: run both dev servers and use the site at
-  http://localhost:8443/partwise/. Its dev server passes
-  `/partwise/editor/` on to the editor's (port 5173), so the editor shares the
+  http://localhost:8443/. Its dev server passes
+  `/editor/` on to the editor's (port 5173), so the editor shares the
   site's address and sign-in, like in production.
-- Production: the editor is served at `/partwise/editor/`. Run
+- Production: the editor is served at `/editor/`. Run
   `npm run build:site` here before building the main site; it writes the
   editor into `Most Recent Partwise Files/public/editor/`, so the main site's
   build and deploy include it.
@@ -68,7 +68,7 @@ site to sign in.
   `model/partwiseFile.ts`, and the same format in `server.js`.
 - **Your projects (signed in):** "Save to my projects" adds the open project
   to the account; projects opened from the dashboard
-  (`/partwise/editor/?project=<id>`) save back automatically. The layout goes
+  (`/editor/?project=<id>`) save back automatically. The layout goes
   in MongoDB (`Project.pageLayout`), the PDF in `UPLOAD_DIR` on the server.
   Code: `model/cloud.ts`.
 
@@ -86,7 +86,7 @@ API (all need `Authorization: Bearer <token>` from `/api/login`):
 
 To try it locally, run `server.js` and put `VITE_API_URL=http://localhost:5000/api`
 in `web/.env.development.local` and the main site's, then open the site at
-http://localhost:8443/partwise/. `node scripts/seed-demo.mjs` (repo root)
+http://localhost:8443/. `node scripts/seed-demo.mjs` (repo root)
 makes a demo account with sample projects; its login is in that script.
 
 ## Two designs

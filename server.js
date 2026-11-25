@@ -22,7 +22,7 @@ mongoose
 
 // --- Email ----------------------------------------------------------------
 // Front end site, the verify link sends people back here
-const FRONTEND_URL = process.env.FRONTEND_URL || 'https://lamp.rosslampdemo.com/partwise/';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://lamp.rosslampdemo.com/login';
 // Public address of this api, used for the links in emails
 const PUBLIC_API_URL = process.env.PUBLIC_API_URL || 'https://lamp.rosslampdemo.com/mern/api';
 

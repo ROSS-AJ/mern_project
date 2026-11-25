@@ -4,7 +4,7 @@ import { allSystems } from '../../model/types.ts';
 import { confirmDialog } from '../shared/ConfirmDialog.tsx';
 import { AssignView } from './AssignView.tsx';
 import { saveNote, useEditor } from '../shared/context.ts';
-import { SITE_URL } from '../../site.ts';
+import { LOGIN_URL } from '../../site.ts';
 import { ADD_PLAYER_INPUT_ID } from './EnsemblePanel.tsx';
 import { ExportView } from './ExportView.tsx';
 import { Icon } from '../shared/Icon.tsx';
@@ -66,7 +66,7 @@ export function ProjectShell({ onClose, saveState }: { onClose: () => void; save
             onChange={(event) => edit({ type: 'setTitle', title: event.target.value }, 'title')}
           />
           {cloud === 'signed-out' ? (
-            <a className="save-state error" href={SITE_URL}>{note.label}</a>
+            <a className="save-state error" href={LOGIN_URL}>{note.label}</a>
           ) : (
             <span className={`save-state ${note.tone}`}>{note.label}</span>
           )}
