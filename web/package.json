@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "test": "node --test src/engine/engine.test.ts src/model/partwiseFile.test.ts",
-    "build:site": "tsc -b && vite build --outDir \"../Most Recent Partwise Files/public/editor\" --emptyOutDir"
+    "build:site": "tsc -b && vite build --outDir \"../Most Recent Partwise Files/public/editor\" --emptyOutDir",
+    "build:site:lamp": "tsc -b && vite build --mode lamp --outDir \"../Most Recent Partwise Files/public/editor\" --emptyOutDir"
   },
   "dependencies": {
     "fflate": "0.8.2",

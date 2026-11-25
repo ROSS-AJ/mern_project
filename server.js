@@ -21,9 +21,11 @@ mongoose
   .catch((err) => console.error('MongoDB connection error:', err));
 
 // --- Email ----------------------------------------------------------------
-// Front end site, the verify link sends people back here
+// Front end site, the verify link sends people back to its /login page.
+// On usepartwise.com set FRONTEND_URL=https://usepartwise.com/
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://lamp.rosslampdemo.com/partwise/';
-// Public address of this api, used for the links in emails
+// Public address of this api, used for the links in emails.
+// On usepartwise.com set PUBLIC_API_URL=https://usepartwise.com/api
 const PUBLIC_API_URL = process.env.PUBLIC_API_URL || 'https://lamp.rosslampdemo.com/mern/api';
 
 // If SMTP_HOST is not set the email just prints in the server log
@@ -177,7 +179,7 @@ app.post('/api/login', async (req, res) => {
 
 // GET api verify, this is the link in the verify email
 // In is the token in the url
-// Out is a redirect to the front end with verified=1 or verified=0
+// Out is a redirect to the front end's login page with verified=1 or verified=0
 app.get('/api/verify', async (req, res) => {
   const token = String(req.query.token || '');
   let ok = false;
@@ -190,8 +192,9 @@ app.get('/api/verify', async (req, res) => {
       ok = true;
     }
   }
-  const sep = FRONTEND_URL.includes('?') ? '&' : '?';
-  res.redirect(`${FRONTEND_URL}${sep}verified=${ok ? 1 : 0}`);
+  const loginPage = new URL('login', FRONTEND_URL.endsWith('/') ? FRONTEND_URL : `${FRONTEND_URL}/`);
+  loginPage.searchParams.set('verified', ok ? '1' : '0');
+  res.redirect(loginPage.toString());
 });
 
 // POST api resend-verification

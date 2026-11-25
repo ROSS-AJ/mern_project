@@ -3,7 +3,7 @@ import type { Step } from '../../model/types.ts';
 import { allSystems } from '../../model/types.ts';
 import { AssignView } from './AssignView.tsx';
 import { saveNote, useEditor } from '../shared/context.ts';
-import { SITE_URL } from '../../site.ts';
+import { LOGIN_URL } from '../../site.ts';
 import { ExportView } from './ExportView.tsx';
 import { Icon } from '../shared/Icon.tsx';
 import { PartSetup } from './PartSetup.tsx';
@@ -37,7 +37,7 @@ export function ProjectShell({ onClose, saveState }: { onClose: () => void; save
               onChange={(event) => edit({ type: 'setTitle', title: event.target.value }, 'title')}
             />
             <span className={`save-state ${note.tone}`}>
-              {cloud === 'signed-out' ? <a href={SITE_URL}>{note.label}</a> : note.label}
+              {cloud === 'signed-out' ? <a href={LOGIN_URL}>{note.label}</a> : note.label}
               {detection.running && ` · Detecting ${detection.done}/${detection.total}`}
             </span>
           </div>

@@ -1,11 +1,10 @@
 // Creates a demo account with a few sample projects, for trying the
 // dashboard locally. TEST DATA ONLY: never run it against the live server.
 //
-//   1. Run server.js locally (PORT=5055, a local MONGODB_URI).
+//   1. Run server.js locally (port 5000, a local MONGODB_URI).
 //   2. node scripts/seed-demo.mjs
-//   3. Run the main site with VITE_API_URL=http://localhost:5055/api in
-//      "Most Recent Partwise Files/.env.development.local", and sign in with
-//      the demo login below.
+//   3. Run the editor and main site dev servers, open
+//      http://localhost:8443/login and sign in with the demo login below.
 //
 // Running it again replaces the demo account's projects.
 
@@ -16,7 +15,7 @@ const DEMO_LOGIN = 'demo';
 const DEMO_PASSWORD = 'demo-pass-1';
 const DEMO_EMAIL = 'demo@example.test';
 
-const API = process.env.API_URL || 'http://localhost:5055/api';
+const API = process.env.API_URL || 'http://localhost:5000/api';
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27018/PartwiseTest';
 
 const require = createRequire(new URL('../package.json', import.meta.url));
