@@ -8,10 +8,11 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
-    "test": "node --test src/engine/engine.test.ts",
+    "test": "node --test src/engine/engine.test.ts src/model/partwiseFile.test.ts",
     "build:site": "tsc -b && vite build --outDir \"../Most Recent Partwise Files/public/editor\" --emptyOutDir"
   },
   "dependencies": {
+    "fflate": "0.8.2",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.5.438",
     "react": "^19.3.1",

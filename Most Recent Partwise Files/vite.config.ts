@@ -36,6 +36,12 @@ react(),
       host: process.env.FIGMA_DEV_SERVER_HOST || '0.0.0.0',
       port: parseInt(process.env.PORT || '8443'),
       strictPort: true,
+      // The score editor (web/, its own dev server on 5173) appears at
+      // /partwise/editor/ here too, like in production. Same address means it
+      // shares this site's sign-in, so projects open from the dashboard.
+      proxy: {
+        '/partwise/editor': { target: 'http://localhost:5173', ws: true },
+      },
       watch: {
         ignored: [
           '**/.figma/**',

@@ -1,16 +1,20 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { ConfirmHost } from './ui/shared/ConfirmDialog.tsx';
 import { EditorContext } from './ui/shared/context.ts';
-import type { DetectionProgress, Editor } from './ui/shared/context.ts';
+import type { CloudState, DetectionProgress, Editor } from './ui/shared/context.ts';
 import { DesignSwitcher } from './ui/DesignSwitcher.tsx';
 import { DESIGNS, initialDesign, saveDesign, showSwitcher } from './ui/index.ts';
 import type { DesignName } from './ui/index.ts';
 import { initialState, reducer } from './model/reducer.ts';
 import type { EditAction } from './model/reducer.ts';
+import { confirmDialog } from './ui/shared/ConfirmDialog.tsx';
+import { createCloudProject, fetchCloudProject, authToken, saveCloudLayout, SignedOutError } from './model/cloud.ts';
+import { looksLikePartwiseFile, partwiseFileName, readPartwiseFile, writePartwiseFile } from './model/partwiseFile.ts';
 import { loadLastProject, saveProject, startNewProject } from './model/storage.ts';
 import type { ProjectDoc, Step } from './model/types.ts';
 import { emptyPage, uid } from './model/types.ts';
 import { analyzePage } from './pdf/analyze.ts';
+import { downloadBytes } from './pdf/exportParts.ts';
 import { closePdf, loadPdf } from './pdf/render.ts';
 import type { PdfDocument } from './pdf/render.ts';
 
@@ -26,6 +30,17 @@ export function App() {
 
   // ---------- opening and closing ----------
 
+  /** Shows a project and makes it the one this browser keeps. `project` may be built from the page count. */
+  const openProject = useCallback(async (source: ProjectDoc | ((pageCount: number) => ProjectDoc), bytes: Uint8Array) => {
+    const loaded = await loadPdf(bytes);
+    const project = typeof source === 'function' ? source(loaded.numPages) : source;
+    // Only one project is kept in the browser; this replaces the last one.
+    await startNewProject(project, bytes);
+    setPdfBytes(bytes);
+    setPdf(loaded);
+    dispatch({ type: 'load', doc: project });
+  }, []);
+
   const continueProject = useCallback(async () => {
     setOpenError(null);
     try {
@@ -40,37 +55,62 @@ export function App() {
     }
   }, []);
 
-  const createProject = useCallback(async (file: File) => {
-    setOpenError(null);
-    try {
+  /** A PDF starts a new project; a .partwise file reopens a saved one. */
+  const createProject = useCallback(
+    async (file: File) => {
+      setOpenError(null);
       const bytes = new Uint8Array(await file.arrayBuffer());
-      const loaded = await loadPdf(bytes);
-      const now = Date.now();
-      const project: ProjectDoc = {
-        id: uid(),
-        title: file.name.replace(/\.pdf$/i, ''),
-        fileName: file.name,
-        pageCount: loaded.numPages,
-        createdAt: now,
-        updatedAt: now,
-        step: 'setup',
-        parts: [],
-        pages: Array.from({ length: loaded.numPages }, emptyPage),
-        regions: [],
-        dismissedIssues: [],
-      };
-      // Only one project is kept in the browser; this replaces the last one.
-      await startNewProject(project, bytes);
-      setPdfBytes(bytes);
-      setPdf(loaded);
-      dispatch({ type: 'load', doc: project });
-    } catch (error) {
-      setOpenError(`Couldn't open that PDF: ${(error as Error).message}`);
-    }
+      if (looksLikePartwiseFile(file.name, bytes)) {
+        try {
+          const saved = readPartwiseFile(bytes);
+          await openProject(saved.doc, saved.pdf);
+        } catch (error) {
+          setOpenError(`Couldn't open that project: ${(error as Error).message}`);
+        }
+        return;
+      }
+      try {
+        await openProject((pageCount) => newProject(file.name, file.name.replace(/\.pdf$/i, ''), pageCount), bytes);
+      } catch (error) {
+        setOpenError(`Couldn't open that PDF: ${(error as Error).message}`);
+      }
+    },
+    [openProject],
+  );
+
+  // Opened from the dashboard: /editor/?project=<id>
+  const [openingCloud, setOpeningCloud] = useState(() => new URLSearchParams(window.location.search).get('project'));
+  useEffect(() => {
+    if (!openingCloud) return;
+    (async () => {
+      try {
+        const { project, pdf: bytes } = await fetchCloudProject(openingCloud);
+        const saved = project.pageLayout;
+        await openProject(
+          (pageCount) => ({
+            // Uploaded as a bare PDF on the dashboard: this is its first time in the editor.
+            ...(saved ?? newProject(project.originalName || `${project.title}.pdf`, project.title, pageCount)),
+            cloudId: project._id,
+          }),
+          bytes,
+        );
+      } catch (error) {
+        setOpenError(`Couldn't open that project: ${(error as Error).message}`);
+      } finally {
+        // The project now lives in this browser too; drop the id so a reload doesn't fetch it again.
+        const url = new URL(window.location.href);
+        url.searchParams.delete('project');
+        window.history.replaceState(null, '', url);
+        setOpeningCloud(null);
+      }
+    })();
+    // Runs once, for the id in the address when the page opened.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const closeProject = useCallback(() => {
     if (doc) void saveProject(doc);
+    if (doc?.cloudId) void saveCloudLayout(doc.cloudId, doc).catch(() => undefined);
     dispatch({ type: 'close' });
     closePdf(pdf);
     setPdf(null);
@@ -90,6 +130,49 @@ export function App() {
     }, 400);
     return () => clearTimeout(timer);
   }, [doc]);
+
+  // The copy in the user's projects follows a little behind the local one.
+  const [cloud, setCloud] = useState<CloudState>('local');
+  useEffect(() => {
+    if (!doc) return;
+    const cloudId = doc.cloudId;
+    if (!cloudId) {
+      setCloud('local');
+      return;
+    }
+    setCloud('saving');
+    const timer = setTimeout(() => {
+      saveCloudLayout(cloudId, doc).then(
+        () => setCloud('saved'),
+        (error) => setCloud(error instanceof SignedOutError ? 'signed-out' : 'error'),
+      );
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [doc]);
+
+  const [signedIn] = useState(() => authToken() !== null);
+
+  const downloadProject = useCallback(() => {
+    if (!doc || !pdfBytes) return;
+    downloadBytes(writePartwiseFile(doc, pdfBytes), partwiseFileName(doc), 'application/octet-stream');
+  }, [doc, pdfBytes]);
+
+  const saveToAccount = useCallback(async () => {
+    if (!doc || !pdfBytes || doc.cloudId) return;
+    setCloud('saving');
+    try {
+      const cloudId = await createCloudProject(doc, pdfBytes);
+      dispatch({ type: 'setCloudId', cloudId });
+    } catch (error) {
+      setCloud('local');
+      await confirmDialog({
+        title: "Couldn't save to your projects",
+        message: `${(error as Error).message} It's still saved in this browser.`,
+        confirmLabel: 'OK',
+        cancelLabel: null,
+      });
+    }
+  }, [doc, pdfBytes]);
 
   // ---------- detection (runs in the background, page by page) ----------
 
@@ -183,9 +266,13 @@ export function App() {
             canRedo: state.future.length > 0,
             detection,
             redetectPage,
+            cloud,
+            signedIn,
+            downloadProject,
+            saveToAccount,
           }
         : null,
-    [doc, pdf, pdfBytes, edit, setStep, undo, redo, state.past.length, state.future.length, detection, redetectPage],
+    [doc, pdf, pdfBytes, edit, setStep, undo, redo, state.past.length, state.future.length, detection, redetectPage, cloud, signedIn, downloadProject, saveToAccount],
   );
 
   // ---------- design (Edition or Classic) ----------
@@ -209,6 +296,8 @@ export function App() {
         <EditorContext.Provider value={editor}>
           <ProjectShell onClose={closeProject} saveState={saveState} />
         </EditorContext.Provider>
+      ) : openingCloud ? (
+        <p className="opening-project" style={{ padding: 32, fontFamily: 'inherit' }}>Opening your project…</p>
       ) : (
         <Home onContinue={continueProject} onCreate={createProject} error={openError} />
       )}
@@ -224,4 +313,21 @@ export function App() {
       )}
     </>
   );
+}
+
+function newProject(fileName: string, title: string, pageCount: number): ProjectDoc {
+  const now = Date.now();
+  return {
+    id: uid(),
+    title,
+    fileName,
+    pageCount,
+    createdAt: now,
+    updatedAt: now,
+    step: 'setup',
+    parts: [],
+    pages: Array.from({ length: pageCount }, emptyPage),
+    regions: [],
+    dismissedIssues: [],
+  };
 }

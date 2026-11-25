@@ -78,3 +78,6 @@ dist/
 out/
 *.min.*
 *.map
+
+# Uploaded score PDFs (server.js)
+uploads/

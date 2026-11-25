@@ -217,8 +217,8 @@ export async function buildPartsPdf(doc: ProjectDoc, sourceBytes: Uint8Array, pd
   return out.save();
 }
 
-export function downloadBytes(bytes: Uint8Array, fileName: string) {
-  const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
+export function downloadBytes(bytes: Uint8Array, fileName: string, type = 'application/pdf') {
+  const blob = new Blob([bytes as BlobPart], { type });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;

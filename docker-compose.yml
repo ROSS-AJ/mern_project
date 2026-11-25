@@ -15,6 +15,8 @@ services:
     volumes:
       - .:/usr/src/app
       - /usr/src/app/node_modules
+      # Uploaded score PDFs (the layouts are in MongoDB); kept across rebuilds
+      - uploads:/app/uploads
     command: npm run dev
     depends_on:
       mongodb:
@@ -43,3 +45,4 @@ services:
 
 volumes:
   mongo_data:
+  uploads:

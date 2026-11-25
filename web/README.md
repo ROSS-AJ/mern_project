@@ -45,14 +45,49 @@ The editor is open to everyone; no account is needed. The main site
 editor") and the dashboard ("Open editor"), and the editor links back to the
 site to sign in.
 
-- Development: run both dev servers. The site is at
-  http://localhost:8443/partwise/ and the editor at http://localhost:5173/.
+- Development: run both dev servers and use the site at
+  http://localhost:8443/partwise/. Its dev server passes
+  `/partwise/editor/` on to the editor's (port 5173), so the editor shares the
+  site's address and sign-in, like in production.
 - Production: the editor is served at `/partwise/editor/`. Run
   `npm run build:site` here before building the main site; it writes the
   editor into `Most Recent Partwise Files/public/editor/`, so the main site's
   build and deploy include it.
 - Different paths: set `VITE_EDITOR_URL` (main site), `VITE_SITE_URL` and
   `EDITOR_BASE` (editor).
+
+## Saving projects
+
+- **This browser:** the open project autosaves here (guests too).
+- **Project file (`.partwise`):** the download button in the editor (and
+  "Download" on the dashboard) saves one file with the layout *and* the PDF,
+  so it always reopens with the right score. Open it from the editor's home
+  screen or upload it on the dashboard. It's a zip: `project.json`
+  (`{ format: 'partwise', version, savedAt, project }`, where `project` is the
+  `ProjectDoc` from `model/types.ts`) and `score.pdf`. Code:
+  `model/partwiseFile.ts`, and the same format in `server.js`.
+- **Your projects (signed in):** "Save to my projects" adds the open project
+  to the account; projects opened from the dashboard
+  (`/partwise/editor/?project=<id>`) save back automatically. The layout goes
+  in MongoDB (`Project.pageLayout`), the PDF in `UPLOAD_DIR` on the server.
+  Code: `model/cloud.ts`.
+
+API (all need `Authorization: Bearer <token>` from `/api/login`):
+
+| Route | Does |
+|---|---|
+| `GET /api/projects` | The user's projects, newest first (no layouts) |
+| `POST /api/projects` | Upload a PDF or `.partwise` file (form field `file`, up to 30 MB) |
+| `GET /api/projects/:id` | One project with its layout (`pageLayout`) |
+| `GET /api/projects/:id/file` | The PDF |
+| `PUT /api/projects/:id` | Save the layout: `{ "layout": ProjectDoc }` |
+| `GET /api/projects/:id/export` | Download as a `.partwise` file |
+| `DELETE /api/projects/:id` | Delete the project and its PDF |
+
+To try it locally, run `server.js` and put `VITE_API_URL=http://localhost:5000/api`
+in `web/.env.development.local` and the main site's, then open the site at
+http://localhost:8443/partwise/. `node scripts/seed-demo.mjs` (repo root)
+makes a demo account with sample projects; its login is in that script.
 
 ## Two designs
 

@@ -54,6 +54,7 @@ export type Action =
   | { type: 'undo' }
   | { type: 'redo' }
   | { type: 'setStep'; step: Step }
+  | { type: 'setCloudId'; cloudId: string | undefined }
   | { type: 'pageDetected'; index: number; page: PageDoc; suggestions: Omit<Region, 'id'>[] }
   /** coalesce: consecutive edits with the same key make one undo step (typing a name). */
   | { type: 'edit'; edit: EditAction; coalesce?: string };
@@ -97,6 +98,10 @@ export function reducer(state: EditorState, action: Action): EditorState {
     case 'setStep':
       if (!state.doc) return state;
       return { ...state, doc: { ...state.doc, step: action.step } };
+    case 'setCloudId':
+      // Where the project is saved, not an edit, so it isn't undoable.
+      if (!state.doc) return state;
+      return { ...state, doc: { ...state.doc, cloudId: action.cloudId } };
     case 'pageDetected': {
       // Detection isn't an undoable edit; it fills in data that wasn't there.
       if (!state.doc) return state;

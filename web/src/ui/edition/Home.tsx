@@ -3,6 +3,7 @@ import { clearSaved, peekLastProject } from '../../model/storage.ts';
 import type { ProjectDoc } from '../../model/types.ts';
 import { confirmDialog } from '../shared/ConfirmDialog.tsx';
 import { SITE_URL } from '../../site.ts';
+import { authToken } from '../../model/cloud.ts';
 import { Icon } from '../shared/Icon.tsx';
 
 interface Props {
@@ -70,7 +71,7 @@ export function Home({ onContinue, onCreate, error }: Props) {
           Partwise
         </div>
         <a className="home-link" href={SITE_URL}>
-          Sign in
+          {authToken() ? 'Your projects' : 'Sign in'}
         </a>
       </header>
 
@@ -127,7 +128,7 @@ export function Home({ onContinue, onCreate, error }: Props) {
             <div className="sheet-content">
               <span className="sheet-icon"><Icon name="upload" size={20} /></span>
               <strong>{last ? 'Start a new score' : 'Drop your score here'}</strong>
-              <span className="muted">PDF, scanned or digital</span>
+              <span className="muted">PDF, scanned or digital, or a .partwise project file</span>
               <button className="button primary large" disabled={busy} onClick={() => input.current?.click()}>
                 {busy ? 'Opening…' : 'Choose a PDF'}
               </button>
@@ -135,7 +136,7 @@ export function Home({ onContinue, onCreate, error }: Props) {
             <input
               ref={input}
               type="file"
-              accept="application/pdf,.pdf"
+              accept="application/pdf,.pdf,.partwise"
               hidden
               onChange={(event) => {
                 void pick(event.target.files?.[0]);

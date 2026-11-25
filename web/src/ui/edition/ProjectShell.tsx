@@ -3,13 +3,15 @@ import type { SaveState } from '../../App.tsx';
 import { allSystems } from '../../model/types.ts';
 import { confirmDialog } from '../shared/ConfirmDialog.tsx';
 import { AssignView } from './AssignView.tsx';
-import { useEditor } from '../shared/context.ts';
+import { saveNote, useEditor } from '../shared/context.ts';
+import { SITE_URL } from '../../site.ts';
 import { ADD_PLAYER_INPUT_ID } from './EnsemblePanel.tsx';
 import { ExportView } from './ExportView.tsx';
 import { Icon } from '../shared/Icon.tsx';
 
 export function ProjectShell({ onClose, saveState }: { onClose: () => void; saveState: SaveState }) {
-  const { doc, edit, undo, redo, canUndo, canRedo, detection } = useEditor();
+  const { doc, edit, undo, redo, canUndo, canRedo, cloud, signedIn, downloadProject, saveToAccount, detection } = useEditor();
+  const note = saveNote(saveState, cloud);
   const [exporting, setExporting] = useState(false);
 
   const read = doc.pages.filter((p) => p.detected).length;
@@ -63,7 +65,11 @@ export function ProjectShell({ onClose, saveState }: { onClose: () => void; save
             aria-label="Score title"
             onChange={(event) => edit({ type: 'setTitle', title: event.target.value }, 'title')}
           />
-          <span className={`save-state ${saveState}`}>{saveState === 'saving' ? 'Saving' : saveState === 'error' ? 'Not saved' : 'Saved'}</span>
+          {cloud === 'signed-out' ? (
+            <a className="save-state error" href={SITE_URL}>{note.label}</a>
+          ) : (
+            <span className={`save-state ${note.tone}`}>{note.label}</span>
+          )}
         </div>
 
         <ol className="progress-line" aria-label="Progress">
@@ -76,6 +82,19 @@ export function ProjectShell({ onClose, saveState }: { onClose: () => void; save
         </ol>
 
         <div className="topbar-right">
+          {signedIn && cloud === 'local' && (
+            <button className="button" onClick={() => void saveToAccount()} title="Keep this project in your account, to open it from your dashboard anywhere">
+              <Icon name="upload" /> Save to my projects
+            </button>
+          )}
+          <button
+            className="icon-button"
+            onClick={downloadProject}
+            aria-label="Download project file"
+            title="Download a project file (.partwise) with the score and your work, to open later or share"
+          >
+            <Icon name="download" />
+          </button>
           <button className="icon-button" onClick={undo} disabled={!canUndo} aria-label="Undo" title="Undo (Ctrl+Z)">
             <Icon name="undo" />
           </button>

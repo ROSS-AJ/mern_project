@@ -108,6 +108,8 @@ export interface ProjectDoc {
   pages: PageDoc[];
   regions: Region[];
   dismissedIssues: string[];
+  /** The copy in the signed-in user's projects (server id), if it has one. Never written to .partwise files. */
+  cloudId?: string;
 }
 
 export interface SystemRef {

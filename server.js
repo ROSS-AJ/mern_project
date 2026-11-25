@@ -5,9 +5,13 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
+const { zipSync, unzipSync, strToU8, strFromU8 } = require('fflate');
 require('dotenv').config();
 
-const { User } = require('./models');
+const { User, Project } = require('./models');
 
 // --- Database -------------------------------------------------------------
 const url = process.env.MONGODB_URI || 'mongodb://localhost:27017/CardsDB';
@@ -79,7 +83,8 @@ const app = express();
 // Allow the React frontend, which runs at a different address, to call this API
 app.use(cors());
 // Turn JSON request bodies into a JavaScript object at req.body
-app.use(express.json());
+// (a saved editor layout can be a few hundred KB, so allow more than the 100 KB default)
+app.use(express.json({ limit: '10mb' }));
 
 // GET api check
 app.get('/api/ping', (req, res) => {
@@ -288,6 +293,251 @@ app.post('/api/reset-password', async (req, res) => {
   res.status(200).json({ message: 'Password updated', error: '' });
 });
 
+
+// --- Projects -------------------------------------------------------------
+// A project is one score: its PDF (a file on disk) and the editor's layout
+// (pageLayout, in MongoDB). Every route needs a signed-in user and only sees
+// that user's projects.
+//
+// A .partwise file is a zip with project.json ({ format: 'partwise',
+// version, savedAt, project }) and score.pdf. The editor reads and writes
+// the same format (web/src/model/partwiseFile.ts).
+
+const UPLOAD_DIR = path.resolve(process.env.UPLOAD_DIR || path.join(__dirname, 'uploads'));
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+const PARTWISE_VERSION = 1;
+const MAX_UPLOAD = 30 * 1024 * 1024;
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_UPLOAD } });
+
+// Needs "Authorization: Bearer <token>" from /api/login; sets req.userId
+function requireAuth(req, res, next) {
+  const header = req.get('Authorization') || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  try {
+    req.userId = jwt.verify(token, process.env.JWT_SECRET).id;
+    next();
+  } catch {
+    res.status(401).json({ error: 'Authentication required' });
+  }
+}
+
+// Finds one of the signed-in user's projects, or answers 404
+async function findOwnProject(req, res, fields) {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    res.status(404).json({ error: 'Project not found' });
+    return null;
+  }
+  const query = Project.findOne({ _id: req.params.id, userId: req.userId });
+  const project = await (fields ? query.select(fields) : query);
+  if (!project) res.status(404).json({ error: 'Project not found' });
+  return project;
+}
+
+const pdfPath = (project) => path.join(UPLOAD_DIR, path.basename(project.pdfLocation || ''));
+const isPdf = (buf) => buf.length > 4 && buf.subarray(0, 5).toString('latin1') === '%PDF-';
+const isZip = (buf) => buf.length > 2 && buf[0] === 0x50 && buf[1] === 0x4b;
+const safeName = (title) => String(title || '').replace(/[\\/:*?"<>|]+/g, '').trim() || 'score';
+
+// What the list and upload return (no layout, it can be big)
+function summary(project) {
+  return {
+    _id: project._id,
+    title: project.title,
+    originalName: project.originalName,
+    size: project.size,
+    pageCount: project.pageCount,
+    partNames: project.partNames,
+    saveFormat: project.saveFormat,
+    hasLayout: project.pageLayout != null,
+    createdAt: project.createdAt,
+    updatedAt: project.updatedAt
+  };
+}
+
+// Title, page count and player names, taken from an editor layout
+function layoutFields(layout) {
+  return {
+    title: String(layout.title || '').trim() || 'Untitled score',
+    pageCount: layout.pages.length,
+    partNames: layout.parts.map((part) => String(part.name || '')).filter(Boolean)
+  };
+}
+
+function isLayout(layout) {
+  return Boolean(
+    layout && typeof layout === 'object' &&
+    Array.isArray(layout.pages) && Array.isArray(layout.parts) && Array.isArray(layout.regions)
+  );
+}
+
+// Reads a .partwise upload; throws a message the user can read
+function readPartwise(buffer) {
+  let files;
+  try {
+    files = unzipSync(new Uint8Array(buffer));
+  } catch {
+    throw new Error('That file is not a PDF or a Partwise project file');
+  }
+  if (!files['project.json'] || !files['score.pdf']) throw new Error('That is not a Partwise project file');
+  let manifest;
+  try {
+    manifest = JSON.parse(strFromU8(files['project.json']));
+  } catch {
+    throw new Error('That project file is damaged');
+  }
+  if (manifest.format !== 'partwise' || !isLayout(manifest.project)) throw new Error('That is not a Partwise project file');
+  if (manifest.version > PARTWISE_VERSION) throw new Error('That project was saved by a newer version of Partwise');
+  const pdf = Buffer.from(files['score.pdf']);
+  if (!isPdf(pdf)) throw new Error('That project file is damaged');
+  const { cloudId, ...layout } = manifest.project;
+  return { layout, pdf };
+}
+
+// GET api projects, the signed-in user's projects, newest first
+// Out is 200 in format projects, error
+app.get('/api/projects', requireAuth, async (req, res) => {
+  try {
+    const projects = await Project.find({ userId: req.userId }).sort({ updatedAt: -1 });
+    res.status(200).json({ projects: projects.map(summary), error: '' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST api projects, multipart form with "file": a PDF (new project) or a .partwise file
+// Out is 201 in format project, error or 400 or 413
+app.post('/api/projects', requireAuth, (req, res) => {
+  upload.single('file')(req, res, async (uploadErr) => {
+    if (uploadErr) {
+      const tooBig = uploadErr.code === 'LIMIT_FILE_SIZE';
+      return res.status(tooBig ? 413 : 400).json({ error: tooBig ? 'The file must be smaller than 30 MB' : uploadErr.message });
+    }
+    if (!req.file) return res.status(400).json({ error: 'Choose a PDF or .partwise file to upload' });
+    try {
+      const name = req.file.originalname || 'score.pdf';
+      let pdf;
+      let layout = null;
+      if (isPdf(req.file.buffer)) {
+        pdf = req.file.buffer;
+      } else if (isZip(req.file.buffer)) {
+        try {
+          ({ layout, pdf } = readPartwise(req.file.buffer));
+        } catch (err) {
+          return res.status(400).json({ error: err.message });
+        }
+      } else {
+        return res.status(400).json({ error: 'That file is not a PDF or a Partwise project file' });
+      }
+
+      const fields = layout
+        ? layoutFields(layout)
+        : { title: name.replace(/\.pdf$/i, '').trim() || 'Untitled score', pageCount: 0, partNames: [] };
+      const project = new Project({
+        userId: req.userId,
+        ...fields,
+        originalName: layout ? layout.fileName || `${fields.title}.pdf` : name,
+        size: pdf.length,
+        pageLayout: layout
+      });
+      project.pdfLocation = `${project._id}.pdf`;
+      await fs.promises.writeFile(pdfPath(project), pdf);
+      await project.save();
+      res.status(201).json({ project: summary(project), error: '' });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+});
+
+// GET api projects/:id, one project with its editor layout
+app.get('/api/projects/:id', requireAuth, async (req, res) => {
+  try {
+    const project = await findOwnProject(req, res);
+    if (!project) return;
+    res.status(200).json({ project: { ...summary(project), pageLayout: project.pageLayout }, error: '' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET api projects/:id/file, the PDF
+app.get('/api/projects/:id/file', requireAuth, async (req, res) => {
+  try {
+    const project = await findOwnProject(req, res, 'pdfLocation');
+    if (!project) return;
+    const file = pdfPath(project);
+    if (!project.pdfLocation || !fs.existsSync(file)) return res.status(404).json({ error: 'This project has no PDF' });
+    res.type('application/pdf').sendFile(file);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT api projects/:id, saves the editor layout
+// In format layout; the title, page count and player names follow it
+app.put('/api/projects/:id', requireAuth, async (req, res) => {
+  try {
+    const layout = (req.body || {}).layout;
+    if (!isLayout(layout)) return res.status(400).json({ error: 'layout must be an editor project' });
+    const project = await findOwnProject(req, res, '_id');
+    if (!project) return;
+    const { cloudId, ...clean } = layout;
+    const updated = await Project.findOneAndUpdate(
+      { _id: project._id },
+      { $set: { ...layoutFields(clean), pageLayout: clean } },
+      { new: true }
+    );
+    res.status(200).json({ project: summary(updated), error: '' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET api projects/:id/export, downloads a .partwise file (layout and PDF)
+app.get('/api/projects/:id/export', requireAuth, async (req, res) => {
+  try {
+    const project = await findOwnProject(req, res);
+    if (!project) return;
+    const file = pdfPath(project);
+    if (!project.pdfLocation || !fs.existsSync(file)) return res.status(404).json({ error: 'This project has no PDF' });
+    // Never opened in the editor yet: export an empty layout. The editor
+    // reads it like a new score (it finds the pages itself).
+    const layout = project.pageLayout || {
+      id: String(project._id),
+      title: project.title,
+      fileName: project.originalName || `${project.title}.pdf`,
+      pageCount: 0,
+      createdAt: project.createdAt.getTime(),
+      updatedAt: project.updatedAt.getTime(),
+      step: 'setup',
+      parts: [],
+      pages: [],
+      regions: [],
+      dismissedIssues: []
+    };
+    const manifest = { format: 'partwise', version: PARTWISE_VERSION, savedAt: new Date().toISOString(), project: layout };
+    const zip = zipSync({
+      'project.json': [strToU8(JSON.stringify(manifest)), { level: 6 }],
+      'score.pdf': [new Uint8Array(await fs.promises.readFile(file)), { level: 0 }]
+    });
+    res.attachment(`${safeName(project.title)}.partwise`).type('application/octet-stream').send(Buffer.from(zip));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE api projects/:id, removes the project and its PDF
+app.delete('/api/projects/:id', requireAuth, async (req, res) => {
+  try {
+    const project = await findOwnProject(req, res, 'pdfLocation');
+    if (!project) return;
+    await Project.deleteOne({ _id: project._id });
+    if (project.pdfLocation) await fs.promises.rm(pdfPath(project), { force: true });
+    res.status(200).json({ message: 'Project deleted', error: '' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Start listening only when run directly not when tes with require()
 if (require.main === module) {

@@ -1,13 +1,14 @@
 
 import { useState, useEffect, useRef, type ReactNode, type FormEvent } from 'react'
 
-const API_BASE = 'https://lamp.rosslampdemo.com/mern/api'
+// Override with VITE_API_URL (e.g. a local server.js while developing)
+const API_BASE: string = import.meta.env.VITE_API_URL ?? 'https://lamp.rosslampdemo.com/mern/api'
 
 // The score editor (web/ in this repo). Anyone can use it, signed in or not.
-// Development: its own dev server. Production: served at /partwise/editor/
-// (web: npm run build:site puts it in public/editor). Override with VITE_EDITOR_URL.
-const EDITOR_URL: string =
-  import.meta.env.VITE_EDITOR_URL ?? (import.meta.env.DEV ? 'http://localhost:5173/' : '/partwise/editor/')
+// Served at /partwise/editor/: in production from public/editor (web: npm run
+// build:site), in development through this site's dev server, which passes it
+// on to the editor's own dev server (vite.config.ts). Override with VITE_EDITOR_URL.
+const EDITOR_URL: string = import.meta.env.VITE_EDITOR_URL ?? '/partwise/editor/'
 
 type IconName =
   | 'arrowLeft'
@@ -290,9 +291,27 @@ function AuthScreen({ onContinue }: { onContinue: () => void }) {
 type Project = {
   _id?: string
   id?: string
+  title?: string
   originalName: string
   size: number
+  pageCount?: number
+  partNames?: string[]
   createdAt: string
+  updatedAt?: string
+}
+
+function projectTitle(project: Project) {
+  return project.title || project.originalName.replace(/\.pdf$/i, '') || 'Untitled score'
+}
+
+function projectDetails(project: Project, formatFileSize: (bytes: number) => string) {
+  const details: string[] = []
+  const players = project.partNames?.length ?? 0
+  if (players > 0) details.push(`${players} player${players === 1 ? '' : 's'}`)
+  if (project.pageCount) details.push(`${project.pageCount} page${project.pageCount === 1 ? '' : 's'}`)
+  details.push(formatFileSize(project.size))
+  details.push(`edited ${new Date(project.updatedAt ?? project.createdAt).toLocaleDateString()}`)
+  return details.join(' · ')
 }
 
 function DashboardScreen({ onLogout }: { onLogout: () => void }) {
@@ -342,14 +361,17 @@ function DashboardScreen({ onLogout }: { onLogout: () => void }) {
 
     setError('')
 
-    if (file.type !== 'application/pdf') {
-      setError('Please select a PDF file.')
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
+    const isProjectFile = /\.partwise$/i.test(file.name)
+
+    if (!isPdf && !isProjectFile) {
+      setError('Please select a PDF or a .partwise project file.')
       event.target.value = ''
       return
     }
 
-    if (file.size > 25 * 1024 * 1024) {
-      setError('The PDF must be smaller than 25 MB.')
+    if (file.size > 30 * 1024 * 1024) {
+      setError('The file must be smaller than 30 MB.')
       event.target.value = ''
       return
     }
@@ -388,42 +410,75 @@ function DashboardScreen({ onLogout }: { onLogout: () => void }) {
     }
   }
 
-  async function handleOpenProject(project: Project) {
+  // Opens the project in the score editor, which loads it from the API
+  // with the same sign-in and saves changes back to it.
+  function handleOpenProject(project: Project) {
     const projectId = project._id || project.id
+    if (!projectId) return
+    window.location.href = `${EDITOR_URL}?project=${encodeURIComponent(projectId)}`
+  }
 
+  // Shows the score PDF in a new tab
+  async function handleViewPdf(project: Project) {
+    const projectId = project._id || project.id
     if (!projectId || !token) return
 
-    // Open a tab immediately so the browser doesn't block it.
+    // Open the tab right away so the browser doesn't block it as a pop-up
     const newTab = window.open('', '_blank')
-
     if (!newTab) {
-      setError('Please allow pop-ups to view your PDF.')
+      setError('Please allow pop-ups to view the PDF.')
       return
     }
 
     try {
-      const response = await fetch(
-        `${API_BASE}/projects/${projectId}/file`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      )
+      const response = await fetch(`${API_BASE}/projects/${projectId}/file`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
 
       if (!response.ok) {
         throw new Error('Could not open this PDF.')
       }
 
-      const blob = await response.blob()
-      const pdfUrl = URL.createObjectURL(blob)
-
+      const pdfUrl = URL.createObjectURL(await response.blob())
       newTab.location.href = pdfUrl
-
       setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000)
     } catch (err) {
       newTab.close()
-      setError(err instanceof Error ? err.message : 'Could not open PDF.')
+      setError(err instanceof Error ? err.message : 'Could not open this PDF.')
+    }
+  }
+
+  // Downloads a .partwise file: the PDF plus everything done in the editor,
+  // one file that opens again in the editor or uploads here.
+  async function handleDownloadProject(project: Project) {
+    const projectId = project._id || project.id
+    if (!projectId || !token) return
+
+    try {
+      const response = await fetch(`${API_BASE}/projects/${projectId}/export`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || 'Could not download this project.')
+      }
+
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${projectTitle(project).replace(/[\\/:*?"<>|]+/g, '').trim() || 'score'}.partwise`
+      document.body.append(link)
+      link.click()
+      link.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 10000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not download this project.')
     }
   }
 
@@ -432,7 +487,7 @@ function DashboardScreen({ onLogout }: { onLogout: () => void }) {
 
     if (!projectId || !token) return
 
-    if (!window.confirm(`Delete "${project.originalName}"?`)) return
+    if (!window.confirm(`Delete "${projectTitle(project)}"? This can't be undone.`)) return
 
     try {
       const response = await fetch(
@@ -462,7 +517,9 @@ function DashboardScreen({ onLogout }: { onLogout: () => void }) {
   }
 
   function formatFileSize(bytes: number) {
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
   return (
@@ -492,13 +549,13 @@ function DashboardScreen({ onLogout }: { onLogout: () => void }) {
       <section className="dashboard-upload">
         <div>
           <h2>Upload Sheet Music</h2>
-          <p>Upload a PDF to get started with Partwise.</p>
+          <p>Upload a PDF score, or a .partwise project file you saved from the editor.</p>
         </div>
 
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf,application/pdf"
+          accept=".pdf,application/pdf,.partwise"
           hidden
           onChange={handleFileUpload}
         />
@@ -509,7 +566,7 @@ function DashboardScreen({ onLogout }: { onLogout: () => void }) {
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploading}
         >
-          {isUploading ? 'Uploading...' : 'Upload PDF'}
+          {isUploading ? 'Uploading...' : 'Upload'}
         </button>
       </section>
 
@@ -539,24 +596,56 @@ function DashboardScreen({ onLogout }: { onLogout: () => void }) {
               >
                 <div className="dashboard-empty-icon">♫</div>
 
-                <div>
-                  <h3>{project.originalName}</h3>
-                  <p>
-                    {formatFileSize(project.size)} ·{' '}
-                    {new Date(project.createdAt).toLocaleDateString()}
-                  </p>
+                <div className="dashboard-project-text">
+                  <h3>{projectTitle(project)}</h3>
+                  <p>{projectDetails(project, formatFileSize)}</p>
                 </div>
 
-                <button
-                  type="button"
-                  className="dashboard-delete-button"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    handleDeleteProject(project)
-                  }}
-                >
-                  Delete
-                </button>
+                <div className="dashboard-project-actions">
+                  <button
+                    type="button"
+                    className="dashboard-edit-button"
+                    title="Open in the score editor"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      handleOpenProject(project)
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="dashboard-download-button"
+                    title="Open the score PDF in a new tab"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      handleViewPdf(project)
+                    }}
+                  >
+                    View PDF
+                  </button>
+                  <button
+                    type="button"
+                    className="dashboard-download-button"
+                    title="Download a .partwise file with the score and your work in the editor"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      handleDownloadProject(project)
+                    }}
+                  >
+                    Download
+                  </button>
+                  <button
+                    type="button"
+                    className="dashboard-delete-button"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      handleDeleteProject(project)
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             ))}
           </div>

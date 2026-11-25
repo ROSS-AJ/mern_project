@@ -21,8 +21,20 @@ const projectSchema = new mongoose.Schema(
       default: null,
       trim: true
     },
-    // Shape not decided yet, so this accepts any value (object or string).
-    // Tighten it once the frontend settles on a format.
+    // The PDF's file name when it was uploaded, and its size in bytes.
+    originalName: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    size: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    // The editor's whole project (players, staffs, systems, text regions):
+    // the "project" part of a .partwise file. null until it's opened in the
+    // editor. Coordinates are fractions of the page. See web/src/model/types.ts.
     pageLayout: {
       type: mongoose.Schema.Types.Mixed,
       default: null
