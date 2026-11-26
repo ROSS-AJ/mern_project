@@ -1,24 +1,39 @@
 /* Partwise editor
-   A working tool, styled like one: hairline rules instead of boxes, small
-   corner radii, one restrained accent, type doing the hierarchy. The page of
-   music is the brightest thing on screen; the chrome around it stays quiet. */
+   A working tool, styled like one: hairline rules instead of boxes, one
+   restrained accent, type doing the hierarchy. The page of music is the
+   brightest thing on screen; the chrome around it stays quiet.
+
+   Colors and type follow the Partwise site (the sign-in page and dashboard):
+   beige behind the score, cream bars, near-black main buttons, navy for the
+   brand, DM Sans with Libre Baskerville for the big heading. The home screen
+   gets the site's dark frame; the working screens stay plain (no drifting
+   notes) so nothing moves while reading music. */
 
 :root {
-  --ink: #17191c;
-  --ink-2: #4a4f57;
-  --muted: #6e737b;
-  --faint: #9aa0a8;
+  --ink: #1b1d1b;
+  --ink-2: #4b504c;
+  --muted: #6f756f;
+  --faint: #9a9f99;
 
-  --desk: #e9e9e6;       /* behind the page */
-  --chrome: #f7f7f5;     /* bars, panels */
-  --surface: #ffffff;    /* inputs, list rows */
-  --hover: #efefec;
-  --rule: #dcdcd8;       /* hairlines */
-  --rule-strong: #c8c8c3;
+  --desk: #efede6;       /* behind the page: the site's beige */
+  --chrome: #faf8f1;     /* bars, panels: the site's cream */
+  --surface: #fffefa;    /* inputs, list rows */
+  --hover: #f1eee5;
+  --rule: #e2ded3;       /* hairlines */
+  --rule-strong: #cdc8bb;
 
-  --accent: #1f3a5f;     /* Partwise navy: primary actions, selection */
-  --accent-hover: #172d4a;
-  --accent-wash: #e6ecf3;
+  --primary: #171917;    /* main buttons, like the site's */
+  --primary-hover: #000;
+  --accent: #14385f;     /* Partwise navy: brand, selection, current step */
+  --accent-hover: #0e2a48;
+  --accent-wash: #e7edf4;
+
+  --frame: #171917;      /* the site's frame round the page */
+
+  /* DM Sans (as on the site) has no fixed-width digits, so counters that change
+     (page numbers, zoom, part numbers, shortcuts) use IBM Plex Sans, whose
+     digits line up and don't shift as the numbers change. */
+  --font-numbers: 'IBM Plex Sans', 'DM Sans', system-ui, sans-serif;
 
   --warn: #a15c00;
   --warn-wash: #fbf3e4;
@@ -26,7 +41,8 @@
   --danger: #b42318;
   --region: #6d3fc0;
 
-  --r: 3px;              /* the only corner radius, apart from round dots */
+  --r: 6px;              /* controls; cards use --r-card */
+  --r-card: 12px;
   --bar: 50px;
   --control: 32px;
 
@@ -36,7 +52,8 @@
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
 body {
-  font: 400 13.5px/1.5 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font: 400 13.5px/1.5 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-optical-sizing: auto;
   color: var(--ink);
   background: var(--chrome);
   -webkit-font-smoothing: antialiased;
@@ -48,7 +65,7 @@ h3, .section-label, .eyebrow {
   font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted);
 }
 kbd {
-  font: 500 10.5px/1 'IBM Plex Sans', system-ui, sans-serif; font-variant-numeric: tabular-nums;
+  font: 500 10.5px/1 var(--font-numbers); font-variant-numeric: tabular-nums;
   min-width: 16px; padding: 2px 4px; text-align: center;
   border: 1px solid var(--rule-strong); border-radius: 2px; background: var(--surface); color: var(--ink-2);
 }
@@ -80,8 +97,8 @@ kbd {
 }
 .button:hover:not(:disabled) { background: var(--hover); }
 .button:disabled { color: var(--faint); cursor: default; }
-.button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.button.primary:hover:not(:disabled) { background: var(--accent-hover); }
+.button.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.button.primary:hover:not(:disabled) { background: var(--primary-hover); }
 .button.primary:disabled { background: var(--rule-strong); border-color: var(--rule-strong); color: #fff; }
 .button.warn { border-color: #e2c08a; background: var(--warn-wash); color: var(--warn); }
 .button.ghost { border-color: transparent; background: transparent; }
@@ -124,7 +141,7 @@ select.button { padding-right: 6px; }
 .segmented.wide button { flex: 1; justify-content: center; }
 
 /* Panels are flat: a hairline, no shadow. */
-.card { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r); padding: 24px 28px; }
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r-card); padding: 24px 28px; }
 
 /* Notes: a colored rule on the left, not a colored bubble. */
 .callout {
@@ -144,32 +161,53 @@ select.button { padding-right: 6px; }
 .pill.auto { background: #eceef1; color: var(--ink-2); }
 .pill.review { background: var(--warn-wash); color: var(--warn); box-shadow: inset 0 0 0 1px #e8cf9f; }
 .pill.confirmed { background: #e8f2ec; color: var(--ok); }
-.badge { padding: 1px 5px; border-radius: 2px; background: #eceef1; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.badge { padding: 1px 5px; border-radius: 4px; background: #ece9e0; color: var(--muted); font-size: 11px; white-space: nowrap; }
 
-.brand { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); }
-.brand-mark { width: 22px; height: 22px; display: grid; place-items: center; border-radius: var(--r); background: var(--accent); color: #fff; }
+.brand { display: flex; align-items: center; gap: 9px; font-size: 16px; font-weight: 700; letter-spacing: -0.4px; color: var(--accent); }
+.brand-mark { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 8px; background: var(--frame); color: #fff; }
 
 /* ---------- home ---------- */
-.home { min-height: 100%; background: var(--chrome); }
-.home-bar { height: var(--bar); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid var(--rule); background: var(--chrome); }
-.home-link { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border: 1px solid var(--rule-strong); border-radius: var(--r); background: var(--surface); color: var(--ink); font-weight: 500; text-decoration: none; }
-.home-link:hover { background: var(--hover); }
-.home-main { max-width: 640px; margin: 0 auto; padding: 56px 24px 64px; }
-.home-main h1 { font-size: 23px; font-weight: 600; letter-spacing: -0.02em; }
+/* The site's look: dark frame, beige page, the content on an outlined cream card. */
+.home { min-height: 100%; border: 8px solid var(--frame); background: var(--desk); }
+.home-bar { height: 72px; display: flex; align-items: center; justify-content: space-between; padding: 0 max(4%, 16px); }
+.home-link {
+  display: inline-flex; align-items: center; height: 36px; padding: 0 16px; border: 1px solid #dfe2dd; border-radius: 8px;
+  background: #fff; color: var(--ink); font-weight: 500; text-decoration: none; transition: border-color 0.2s;
+}
+.home-link:hover { border-color: #343934; }
+.home-main {
+  max-width: 680px; margin: 16px auto 48px; padding: 40px 44px 36px;
+  border: 2px solid var(--frame); border-radius: 16px;
+  background-color: var(--chrome);
+  background-image:
+    radial-gradient(circle at 18% 24%, #26332b0a 0 .6px, transparent .8px),
+    radial-gradient(circle at 76% 68%, #8c795d0b 0 .5px, transparent .8px),
+    linear-gradient(105deg, #fbfaf6 0%, #f5f2e9 48%, #fbfaf6 100%);
+  background-size: 9px 11px, 13px 15px, 100% 100%;
+  box-shadow: 0 14px 40px #34403914;
+}
+.home-main h1 {
+  font-family: 'Libre Baskerville', Georgia, serif; font-size: 30px; font-weight: 400; letter-spacing: -0.8px;
+  color: var(--accent); text-shadow: 0 1px 2px #0c294638;
+}
+@media (max-width: 600px) {
+  .home-main { margin: 8px 12px 32px; padding: 26px 20px; }
+  .home-main h1 { font-size: 24px; }
+}
 .lede { margin: 8px 0 0; max-width: 520px; color: var(--ink-2); font-size: 14.5px; line-height: 1.55; }
 .home-section { margin-top: 36px; }
 .home-section .section-label { margin-bottom: 8px; }
 .file-row {
   display: flex; align-items: center; gap: 12px; padding: 10px 12px;
-  border: 1px solid var(--rule); border-radius: var(--r); background: var(--surface);
+  border: 1px solid var(--rule); border-radius: 10px; background: var(--surface);
 }
-.file-icon { width: 30px; height: 36px; display: grid; place-items: center; flex: none; border: 1px solid var(--rule-strong); border-radius: 2px; color: var(--ink-2); background: var(--chrome); }
+.file-icon { width: 30px; height: 36px; display: grid; place-items: center; flex: none; border: 1px solid var(--rule-strong); border-radius: 4px; color: var(--ink-2); background: var(--chrome); }
 .file-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .file-text strong { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-text small { color: var(--muted); font-size: 12.5px; }
 .dropzone {
   display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 120px; padding: 24px;
-  border: 1px dashed var(--rule-strong); border-radius: var(--r); background: var(--surface); color: var(--ink-2);
+  border: 1px dashed var(--rule-strong); border-radius: 10px; background: var(--surface); color: var(--ink-2);
 }
 .dropzone.dragging { border-color: var(--accent); border-style: solid; background: var(--accent-wash); }
 .fine-print { margin: 10px 0 0; color: var(--muted); font-size: 12.5px; }
@@ -209,7 +247,7 @@ a.save-state:hover { text-decoration: underline; }
 .step.current::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; background: var(--accent); }
 .step-number {
   width: 16px; height: 16px; display: grid; place-items: center; border-radius: 50%;
-  border: 1px solid var(--rule-strong); font-size: 10.5px; font-weight: 600; font-variant-numeric: tabular-nums;
+  border: 1px solid var(--rule-strong); font-size: 10.5px; font-weight: 600; font-variant-numeric: tabular-nums; font-family: var(--font-numbers);
 }
 .step.current .step-number { border-color: var(--accent); background: var(--accent); color: #fff; }
 .step.done .step-number { border-color: var(--ok); color: var(--ok); }
@@ -235,13 +273,13 @@ a.save-state:hover { text-decoration: underline; }
 .part-row:hover { background: #fafaf8; }
 .part-row.dragging { background: var(--accent-wash); }
 .grip { color: var(--faint); cursor: grab; display: grid; }
-.part-index { color: var(--muted); font-size: 12.5px; text-align: right; font-variant-numeric: tabular-nums; }
+.part-index { color: var(--muted); font-size: 12.5px; text-align: right; font-variant-numeric: tabular-nums; font-family: var(--font-numbers); }
 .color-swatch { width: 12px; height: 12px; border-radius: 2px; cursor: pointer; position: relative; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12); }
 .color-swatch input { position: absolute; inset: -4px; opacity: 0; cursor: pointer; width: 20px; height: 20px; }
 .part-name { border: 1px solid transparent; border-radius: var(--r); padding: 4px 6px; background: transparent; font-weight: 500; min-width: 0; }
 .part-name:hover { border-color: var(--rule); }
 .part-name:focus { border-color: var(--accent); outline: none; background: var(--surface); }
-.part-row .segmented button { height: 26px; width: 30px; padding: 0; justify-content: center; font-variant-numeric: tabular-nums; }
+.part-row .segmented button { height: 26px; width: 30px; padding: 0; justify-content: center; font-variant-numeric: tabular-nums; font-family: var(--font-numbers); }
 .check { display: flex; justify-content: center; cursor: pointer; }
 .check input { margin: 0; accent-color: var(--accent); }
 .row-actions { display: inline-flex; justify-content: flex-end; }
@@ -264,7 +302,7 @@ a.save-state:hover { text-decoration: underline; }
 .thumb-image canvas { width: 100%; height: auto; display: block; }
 .thumb:hover .thumb-image { border-color: var(--faint); }
 .thumb.current .thumb-image { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
-.thumb-label { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.thumb-label { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; font-family: var(--font-numbers); }
 .thumb.current .thumb-label { color: var(--ink); font-weight: 600; }
 .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--rule-strong); }
 .status-dot.ok { background: var(--ok); }
@@ -275,12 +313,12 @@ a.save-state:hover { text-decoration: underline; }
   display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
   min-height: 48px; padding: 5px 10px; border-bottom: 1px solid var(--rule); background: var(--chrome);
 }
-.page-nav { display: inline-flex; align-items: center; gap: 2px; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.page-nav { display: inline-flex; align-items: center; gap: 2px; font-variant-numeric: tabular-nums; font-family: var(--font-numbers); color: var(--ink-2); }
 .page-nav strong { color: var(--ink); }
 .zoom-control { display: inline-flex; align-items: center; }
 .zoom-value {
   min-width: 48px; height: var(--control); border: 0; border-radius: var(--r); background: transparent;
-  font-variant-numeric: tabular-nums; font-weight: 500; color: var(--ink-2); cursor: pointer;
+  font-variant-numeric: tabular-nums; font-family: var(--font-numbers); font-weight: 500; color: var(--ink-2); cursor: pointer;
 }
 .zoom-value:hover { background: var(--hover); color: var(--ink); }
 /* Floats over the top of the score (under the toolbar), so switching tools never moves the page. */
@@ -383,7 +421,7 @@ a.save-state:hover { text-decoration: underline; }
 .staff-row:hover { background: var(--hover); }
 .staff-row.selected { background: var(--accent-wash); }
 .staff-row select { flex: 1; min-width: 0; height: 30px; border: 1px solid var(--rule-strong); border-radius: var(--r); background: var(--surface); padding: 0 4px; }
-.staff-num { width: 14px; text-align: right; color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.staff-num { width: 14px; text-align: right; color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; font-family: var(--font-numbers); }
 .split-here {
   display: flex; align-items: center; gap: 6px; width: 100%; height: 12px; margin: 1px 0; padding: 0 0 0 26px;
   border: 0; background: none; font-size: 11px; color: transparent; cursor: pointer;
@@ -421,7 +459,7 @@ a.save-state:hover { text-decoration: underline; }
 .export-list li input { accent-color: var(--accent); }
 .export-list li.focused { background: var(--accent-wash); box-shadow: inset 2px 0 0 var(--accent); }
 .export-part { flex: 1; display: flex; align-items: center; gap: 8px; padding: 7px 6px 7px 0; border: 0; background: none; cursor: pointer; font-weight: 500; text-align: left; min-width: 0; }
-.export-part small { font-weight: 400; font-variant-numeric: tabular-nums; }
+.export-part small { font-weight: 400; font-variant-numeric: tabular-nums; font-family: var(--font-numbers); }
 .preview { min-height: 0; overflow-y: auto; background: var(--desk); padding: 0 24px 40px; }
 .preview-header { display: flex; justify-content: space-between; align-items: center; height: 48px; margin-bottom: 12px; position: sticky; top: 0; background: var(--desk); z-index: 1; border-bottom: 1px solid var(--rule); }
 .preview-header h2 { font-size: 15px; }
