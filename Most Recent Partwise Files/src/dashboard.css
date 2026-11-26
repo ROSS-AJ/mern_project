@@ -1,0 +1,235 @@
+/* ================================
+   PARTWISE DASHBOARD
+   Same look as the sign-in page: the dark frame, beige page, outlined cream
+   cards, navy serif headings and near-black main buttons. Colors are the
+   --pw-* values in index.css.
+================================ */
+
+.dashboard-page {
+  min-height: 100vh;
+  padding: 0 max(7%, 20px) 48px;
+  border: 8px solid var(--pw-frame);
+  background: var(--pw-page);
+  color: var(--pw-navy);
+  font-family: 'DM Sans', sans-serif;
+}
+
+.dashboard-header {
+  min-height: 88px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.dashboard-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  text-shadow: var(--pw-navy-shadow);
+}
+.dashboard-brand .brand-mark { background: var(--pw-frame); text-shadow: none; }
+
+.dashboard-actions { display: flex; align-items: center; gap: 10px; }
+
+/* ---------- buttons ---------- */
+.dashboard-editor-link,
+.dashboard-upload-button,
+.dashboard-edit-button {
+  border: 1px solid var(--pw-frame);
+  border-radius: 8px;
+  background: var(--pw-frame);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 2px 6px #17191722;
+  transition: background 0.2s;
+}
+.dashboard-editor-link:hover,
+.dashboard-upload-button:hover:not(:disabled),
+.dashboard-edit-button:hover { background: var(--pw-frame-hover); }
+.dashboard-editor-link { padding: 9px 18px; font-size: 14px; }
+.dashboard-edit-button { padding: 7px 16px; font-size: 13px; }
+
+.dashboard-logout,
+.dashboard-download-button,
+.dashboard-delete-button {
+  border: 1px solid var(--pw-line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--pw-text);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.dashboard-logout { padding: 9px 18px; font-size: 14px; }
+.dashboard-download-button,
+.dashboard-delete-button { padding: 7px 14px; font-size: 13px; }
+.dashboard-logout:hover,
+.dashboard-download-button:hover:not(:disabled) { border-color: var(--pw-line-strong); }
+.dashboard-download-button:disabled { color: #a3a9a4; background: #fbfaf6; cursor: default; }
+.dashboard-delete-button { color: var(--pw-danger); }
+.dashboard-delete-button:hover { border-color: var(--pw-danger); background: #fbf1ef; }
+
+/* ---------- welcome, with the sign-in page's drifting notes ---------- */
+.dashboard-welcome {
+  position: relative;
+  padding: 56px 0 44px;
+}
+.dashboard-welcome > :not(.auth-notes) { position: relative; z-index: 1; }
+.dashboard-welcome .auth-notes { inset: 0 -4%; }
+
+.dashboard-eyebrow {
+  margin: 0 0 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+.dashboard-welcome h1 {
+  margin: 0 0 12px;
+  font-family: 'Libre Baskerville', serif;
+  font-size: clamp(32px, 5vw, 48px);
+  font-weight: 400;
+  letter-spacing: -1px;
+  text-shadow: var(--pw-navy-shadow);
+}
+
+.dashboard-welcome p:last-child {
+  margin: 0;
+  color: var(--pw-muted);
+  font-size: 15px;
+}
+
+/* ---------- cards ---------- */
+.dashboard-upload,
+.dashboard-projects {
+  position: relative;
+  z-index: 1;
+  border: 2px solid var(--pw-frame);
+  border-radius: 16px;
+  background-color: var(--pw-card);
+  background-image: var(--pw-card-texture);
+  background-size: var(--pw-card-texture-size);
+  box-shadow: var(--pw-card-shadow);
+}
+
+.dashboard-upload {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px 32px;
+}
+
+.dashboard-projects {
+  margin-top: 28px;
+  padding: 28px 32px 20px;
+}
+
+.dashboard-upload h2,
+.dashboard-projects h2 {
+  margin: 0 0 8px;
+  font-family: 'Libre Baskerville', serif;
+  font-size: 21px;
+  font-weight: 400;
+  text-shadow: var(--pw-navy-shadow);
+}
+
+.dashboard-upload p {
+  margin: 0;
+  color: var(--pw-muted);
+  font-size: 14px;
+}
+
+.dashboard-upload-button {
+  flex-shrink: 0;
+  padding: 13px 28px;
+  font-size: 15px;
+}
+.dashboard-upload-button:disabled { cursor: not-allowed; opacity: 0.65; }
+
+/* ---------- project list ---------- */
+.dashboard-project-list { display: flex; flex-direction: column; margin-top: 16px; border-top: 1px solid #e4e2d9; }
+.dashboard-project-item {
+  display: flex; align-items: center; gap: 16px; margin: 0 -12px; padding: 16px 12px; border-bottom: 1px solid #e4e2d9;
+  border-radius: 8px; transition: background 0.15s;
+}
+.dashboard-project-item:last-child { border-bottom: 0; }
+.dashboard-project-item:hover, .dashboard-project-item:focus-visible { background: var(--pw-hover); outline: none; }
+.dashboard-project-icon {
+  width: 34px; height: 34px; flex: none; display: grid; place-items: center;
+  border: 1px solid var(--pw-line); border-radius: 8px; background: #fff; color: var(--pw-navy);
+}
+.dashboard-project-text { flex: 1; min-width: 0; }
+.dashboard-project-text h3 { margin: 0 0 4px; font-family: 'Libre Baskerville', serif; font-size: 16px; font-weight: 400; overflow-wrap: anywhere; color: var(--pw-navy); }
+.dashboard-project-text p { margin: 0; color: var(--pw-muted); font-size: 13px; }
+.dashboard-project-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+.dashboard-rename-input {
+  width: 100%; max-width: 420px; margin: 0 0 4px; padding: 3px 8px; border: 1px solid var(--pw-line-strong); border-radius: 8px;
+  font-family: 'Libre Baskerville', serif; font-size: 16px; color: var(--pw-navy); background: var(--pw-field);
+}
+.dashboard-rename-input:focus { outline: none; box-shadow: 0 0 0 3px #e7e9e7; }
+
+/* ---------- empty list ---------- */
+.dashboard-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  margin-top: 16px;
+  padding: 30px;
+  border: 1px dashed #cbc7bb;
+  border-radius: 12px;
+  text-align: center;
+}
+.dashboard-empty-state .dashboard-project-icon { margin-bottom: 12px; }
+.dashboard-empty-state h3 {
+  margin: 0 0 8px;
+  font-family: 'Libre Baskerville', serif;
+  font-size: 19px;
+  font-weight: 400;
+}
+.dashboard-empty-state p {
+  max-width: 350px;
+  margin: 0;
+  color: var(--pw-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ---------- too big for the dashboard ---------- */
+.dashboard-notice {
+  position: relative; z-index: 1;
+  margin: 16px 0 0; padding: 16px 18px; border: 1px solid #e8d9a8; border-radius: 12px; background: #fdf8e8; color: #3b3a2e;
+}
+.dashboard-notice p { margin: 0 0 12px; font-size: 14px; line-height: 1.5; }
+.dashboard-notice-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.dashboard-page > p[role='alert'] { position: relative; z-index: 1; margin: 16px 0 0; color: var(--pw-danger); }
+
+/* ---------- smaller screens ---------- */
+/* Five buttons don't fit beside the name: put them below */
+@media (max-width: 860px) {
+  .dashboard-project-item { flex-wrap: wrap; }
+  .dashboard-project-actions { width: 100%; flex-wrap: wrap; padding-left: 50px; }
+}
+
+@media (max-width: 600px) {
+  .dashboard-page { padding: 0 16px 32px; }
+  .dashboard-header { min-height: 72px; }
+  .dashboard-editor-link, .dashboard-logout { padding: 8px 12px; font-size: 13px; }
+  .dashboard-welcome { padding: 36px 0 28px; }
+  .dashboard-welcome .auth-notes span:nth-child(n+13) { display: none; }
+  .dashboard-upload { align-items: stretch; flex-direction: column; padding: 22px 20px; }
+  .dashboard-projects { padding: 22px 20px 14px; }
+  .dashboard-upload-button { width: 100%; }
+  .dashboard-project-actions { padding-left: 0; }
+  .dashboard-project-actions button { flex: 1 1 auto; padding-inline: 12px; white-space: nowrap; }
+}

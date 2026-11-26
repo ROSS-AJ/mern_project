@@ -47,18 +47,16 @@ function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   return <svg className="icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{icons[name]}</svg>
 }
 
-const projects = [
-  { title: 'Nocturne in E-flat', meta: 'Chopin · 4 players', active: true },
-  { title: 'String Quartet No. 12', meta: 'Dvořák · 4 players' },
-  { title: 'Piano Trio in B-flat', meta: 'Schubert · 3 players' },
-]
-
-const players = [
-  { name: 'Violin I', color: '#e26745', checked: true },
-  { name: 'Violin II', color: '#478bc1', checked: false },
-  { name: 'Viola', color: '#9a73b5', checked: false },
-  { name: 'Cello', color: '#4a9b72', checked: false },
-]
+/** The faint drifting notes from the sign-in page (styled by .auth-notes). */
+function DriftingNotes({ count }: { count: number }) {
+  return (
+    <div className="auth-notes" aria-hidden="true">
+      {Array.from({ length: count }, (_, index) => (
+        <span key={index}>{['♪', '♫', '♩', '♬', '♪', '♭'][index % 6]}</span>
+      ))}
+    </div>
+  )
+}
 
 /**
  * Swaps the sign-in for a fresh one-hour one once it has under half an hour
@@ -637,7 +635,7 @@ function DashboardScreen() {
     <main className="dashboard-page">
       <header className="dashboard-header">
         <div className="dashboard-brand">
-          <span className="dashboard-brand-mark">♫</span>
+          <div className="brand-mark"><Icon name="music" size={18} /></div>
           <span>Partwise</span>
         </div>
 
@@ -658,6 +656,7 @@ function DashboardScreen() {
       </header>
 
       <section className="dashboard-welcome">
+        <DriftingNotes count={20} />
         <p className="dashboard-eyebrow">YOUR MUSIC WORKSPACE</p>
         <h1>Welcome back.</h1>
         <p>Your sheet music workspace is ready.</p>
@@ -729,7 +728,7 @@ function DashboardScreen() {
                 }}
                 style={{ cursor: 'pointer' }}
               >
-                <div className="dashboard-empty-icon">♫</div>
+                <div className="dashboard-project-icon"><Icon name="file" size={17} /></div>
 
                 <div className="dashboard-project-text">
                   {renaming && renaming.id === (project._id || project.id) ? (
@@ -834,7 +833,7 @@ function DashboardScreen() {
           </div>
         ) : (
           <div className="dashboard-empty-state">
-            <div className="dashboard-empty-icon">♫</div>
+            <div className="dashboard-project-icon"><Icon name="file" size={17} /></div>
             <h3>No projects yet</h3>
             <p>
               Your uploaded sheet music projects will appear here.
