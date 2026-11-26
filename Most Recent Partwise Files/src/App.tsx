@@ -492,7 +492,7 @@ function DashboardScreen() {
     try {
       const { keepInBrowser } = await import('@editor/model/handoff.ts')
       await keepInBrowser(tooBig.file)
-      window.location.href = `${EDITOR_URL}?continue`
+      window.location.href = `${EDITOR_URL}?continue&from=dashboard`
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not open this file in the editor.')
     }

@@ -9,7 +9,7 @@ import { ADD_PLAYER_INPUT_ID } from './EnsemblePanel.tsx';
 import { ExportView } from './ExportView.tsx';
 import { Icon } from '../shared/Icon.tsx';
 
-export function ProjectShell({ onClose, saveState }: { onClose: () => void; saveState: SaveState }) {
+export function ProjectShell({ onClose, backLabel, saveState }: { onClose: () => void; backLabel: string; saveState: SaveState }) {
   const { doc, edit, undo, redo, canUndo, canRedo, cloud, signedIn, downloadProject, saveToAccount, detection } = useEditor();
   const [exporting, setExporting] = useState(false);
 
@@ -54,7 +54,7 @@ export function ProjectShell({ onClose, saveState }: { onClose: () => void; save
     <div className="shell">
       <header className="topbar">
         <div className="topbar-left">
-          <button className="icon-button" aria-label="Back to home" title="Back to home" onClick={onClose}>
+          <button className="icon-button" aria-label={backLabel} title={backLabel} onClick={onClose}>
             <Icon name="arrowLeft" />
           </button>
           <span className="brand-mark" aria-hidden="true"><Icon name="music" size={14} /></span>

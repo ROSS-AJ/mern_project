@@ -23,6 +23,8 @@ export interface HomeProps {
 
 export interface ShellProps {
   onClose: () => void;
+  /** What the back button says: where it goes (home, or the dashboard). */
+  backLabel: string;
   saveState: SaveState;
 }
 
