@@ -29,7 +29,12 @@ function portable(doc: ProjectDoc): ProjectDoc {
   return rest;
 }
 
-export function writePartwiseFile(doc: ProjectDoc, pdf: Uint8Array): Uint8Array {
+/**
+ * `squeezePdf` also deflates the PDF inside the zip. It's lossless and usually
+ * saves a little (the parts of a PDF that aren't already compressed), at the
+ * cost of a moment's work; used when uploading, where size matters.
+ */
+export function writePartwiseFile(doc: ProjectDoc, pdf: Uint8Array, { squeezePdf = false } = {}): Uint8Array {
   const manifest: Manifest = {
     format: 'partwise',
     version: PARTWISE_VERSION,
@@ -38,8 +43,8 @@ export function writePartwiseFile(doc: ProjectDoc, pdf: Uint8Array): Uint8Array 
   };
   return zipSync({
     'project.json': [strToU8(JSON.stringify(manifest)), { level: 6 }],
-    // PDFs are already compressed; storing them is just as small and faster.
-    'score.pdf': [pdf, { level: 0 }],
+    // PDFs are mostly compressed already; storing them is nearly as small and faster.
+    'score.pdf': [pdf, { level: squeezePdf ? 6 : 0 }],
   });
 }
 

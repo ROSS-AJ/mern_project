@@ -15,8 +15,9 @@ export interface DetectionProgress {
  * local      = only in this browser (guests, or not added to an account yet)
  * saving / saved / error = the copy in the signed-in user's projects
  * signed-out = it's in their projects, but the sign-in ran out
+ * too-big    = only in this browser: the score is bigger than projects can hold
  */
-export type CloudState = 'local' | 'saving' | 'saved' | 'error' | 'signed-out';
+export type CloudState = 'local' | 'saving' | 'saved' | 'error' | 'signed-out' | 'too-big';
 
 export interface Editor {
   cloud: CloudState;

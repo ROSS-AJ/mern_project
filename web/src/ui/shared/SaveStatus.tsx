@@ -76,6 +76,16 @@ export function SaveStatus({
           Signed out · sign in to save{detecting}
         </a>
       );
+    case 'too-big':
+      return (
+        <span
+          className={`${className} local`}
+          role="status"
+          title="This score is bigger than your projects can hold. It's saved in this browser; use the download button to keep a copy."
+        >
+          Only in this browser · too big for your projects{detecting}
+        </span>
+      );
     default: {
       const label =
         saveState === 'saving' ? 'Saving…' : saveState === 'error' ? 'Not saved' : signedIn ? 'Only in this browser' : 'Saved in this browser';

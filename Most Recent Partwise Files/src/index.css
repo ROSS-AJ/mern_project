@@ -674,3 +674,25 @@
   font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s;
 }
 .dashboard-edit-button:hover { background: #0e2a48; }
+.dashboard-download-button:disabled { color: #a3a9a4; border-color: #e4e6e1; cursor: default; }
+.dashboard-download-button:disabled:hover { border-color: #e4e6e1; }
+.dashboard-rename-input {
+  width: 100%; max-width: 420px; margin: 0 0 4px; padding: 3px 8px; border: 1px solid #14385f; border-radius: 6px;
+  font-family: 'Libre Baskerville', serif; font-size: 16px; color: #242925; background: #fff;
+}
+.dashboard-rename-input:focus { outline: 2px solid #c9d6e4; }
+/* Five buttons don't fit beside the name on narrower screens: put them below */
+@media (max-width: 860px) {
+  .dashboard-project-item { flex-wrap: wrap; }
+  .dashboard-project-actions { width: 100%; flex-wrap: wrap; padding-left: 40px; }
+}
+@media (max-width: 600px) {
+  .dashboard-project-actions { padding-left: 0; }
+}
+
+/* ---------- too big for the dashboard ---------- */
+.dashboard-notice {
+  margin: 16px 0; padding: 16px 18px; border: 1px solid #e8d9a8; border-radius: 8px; background: #fdf8e8; color: #3b3a2e;
+}
+.dashboard-notice p { margin: 0 0 12px; font-size: 14px; line-height: 1.5; }
+.dashboard-notice-actions { display: flex; gap: 8px; flex-wrap: wrap; }

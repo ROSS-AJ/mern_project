@@ -77,6 +77,15 @@ and the editor links back to `/login` and `/dashboard`.
   - Opening a project uses whichever copy was edited last, this browser's or
     the account's (by `updatedAt`), and coming back to the tab picks up
     changes made in another browser.
+  - Projects hold scores up to 25 MB (`MAX_PROJECT_MB` on the server).
+    Before uploading, the PDF is shrunk without changing how it looks
+    (`pdf/shrink.ts`: pdf-lib repacks it; no image is recompressed), which
+    helps most with files from notation software and barely at all with
+    scans. A bigger score still works in the editor, kept in the browser
+    only, and the editor and dashboard both say so.
+  - The dashboard's "Export parts" makes a zip with one PDF per player in
+    the browser, using the editor's own export code (`pdf/exportProject.ts`,
+    imported by the site as `@editor/...`).
   - The sign-in lasts an hour; the editor and dashboard refresh it
     (`POST /api/refresh`) while they're open. If it does run out, changes
     stay in the browser, and signing in again comes back to the project
@@ -86,12 +95,14 @@ API (all need `Authorization: Bearer <token>` from `/api/login`):
 
 | Route | Does |
 |---|---|
+| `GET /api/limits` | `{ maxProjectBytes }`, the biggest file a project can hold (no sign-in needed) |
 | `POST /api/refresh` | A fresh one-hour token for one that hasn't run out yet |
 | `GET /api/projects` | The user's projects, newest first (no layouts) |
 | `POST /api/projects` | Upload a PDF or `.partwise` file (form field `file`, up to 30 MB) |
 | `GET /api/projects/:id` | One project with its layout (`pageLayout`) |
 | `GET /api/projects/:id/file` | The PDF |
 | `PUT /api/projects/:id` | Save the layout: `{ "layout": ProjectDoc }` |
+| `PATCH /api/projects/:id` | Rename: `{ "title": "..." }` (the layout's title follows) |
 | `GET /api/projects/:id/export` | Download as a `.partwise` file |
 | `DELETE /api/projects/:id` | Delete the project and its PDF |
 

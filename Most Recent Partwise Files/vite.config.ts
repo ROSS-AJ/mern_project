@@ -31,6 +31,9 @@ react(),
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
+        // The score editor's code (web/src): the dashboard reuses its parts
+        // export and lossless PDF shrinking, loaded only when used.
+        '@editor': path.resolve(__dirname, '../web/src'),
       },
     },
     server: {
@@ -40,6 +43,8 @@ react(),
       // The score editor (web/, its own dev server on 5173) appears at
       // /editor/ here too, like in production. Same address means it shares
       // this site's sign-in, so projects open from the dashboard.
+      // This folder plus the editor's code, which the alias above reaches into.
+      fs: { allow: [__dirname, path.resolve(__dirname, '../web')] },
       proxy: {
         '/editor': { target: 'http://localhost:5173', ws: true },
       },

@@ -83,6 +83,26 @@ interface PlacedGroup {
   height: number;
 }
 
+/**
+ * Text the font can draw. The standard PDF fonts only cover Western European
+ * letters, so others lose their accent ("Dvořák" -> "Dvorák") or, failing
+ * that, become "?". Drawing an unsupported letter would stop the export.
+ */
+function printable(text: string, font: PDFFont): string {
+  const supported = new Set(font.getCharacterSet());
+  let out = '';
+  for (const char of text.normalize('NFC')) {
+    const code = char.codePointAt(0)!;
+    if (supported.has(code)) {
+      out += char;
+      continue;
+    }
+    const base = char.normalize('NFD').replace(/\p{M}/gu, '');
+    out += base && [...base].every((c) => supported.has(c.codePointAt(0)!)) ? base : '?';
+  }
+  return out;
+}
+
 class PartWriter {
   private page: PDFPage | null = null;
   private cursor = 0;
@@ -97,8 +117,8 @@ class PartWriter {
     this.out = out;
     this.font = font;
     this.bold = bold;
-    this.partName = partName;
-    this.title = title;
+    this.partName = printable(partName, bold);
+    this.title = printable(title, font);
   }
 
   newPage() {
