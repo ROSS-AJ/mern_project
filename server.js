@@ -312,9 +312,36 @@ const MAX_PROJECT_MB = Number(process.env.MAX_PROJECT_MB) > 0 ? Number(process.e
 const MAX_UPLOAD = Math.round(MAX_PROJECT_MB * 1024 * 1024);
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_UPLOAD } });
 
+// Space each account can use for its scores, in MB
+const MAX_STORAGE_MB = Number(process.env.MAX_STORAGE_MB) > 0 ? Number(process.env.MAX_STORAGE_MB) : 100;
+const MAX_STORAGE = Math.round(MAX_STORAGE_MB * 1024 * 1024);
+// New uploads stop when the disk has less than this free (MB), so the system
+// and MongoDB always have room, however many accounts there are
+const MIN_FREE_DISK_MB = Number(process.env.MIN_FREE_DISK_MB) >= 0 && process.env.MIN_FREE_DISK_MB ? Number(process.env.MIN_FREE_DISK_MB) : 1024;
+
+// "640 KB", "12.5 MB"
+const formatBytes = (bytes) =>
+  bytes < 1048576 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
+
+// Bytes of scores the user has stored
+async function storageUsed(userId) {
+  const projects = await Project.find({ userId }).select('size');
+  return projects.reduce((total, project) => total + (project.size || 0), 0);
+}
+
+// Bytes free on the disk the scores are saved to (Infinity if it can't be read)
+async function diskFree() {
+  try {
+    const stats = await fs.promises.statfs(UPLOAD_DIR);
+    return stats.bavail * stats.bsize;
+  } catch {
+    return Infinity;
+  }
+}
+
 // GET api limits, what the site and editor check before uploading
 app.get('/api/limits', (req, res) => {
-  res.status(200).json({ maxProjectBytes: MAX_UPLOAD, error: '' });
+  res.status(200).json({ maxProjectBytes: MAX_UPLOAD, maxStorageBytes: MAX_STORAGE, error: '' });
 });
 
 // Needs "Authorization: Bearer <token>" from /api/login; sets req.userId
@@ -419,7 +446,8 @@ function readPartwise(buffer) {
 app.get('/api/projects', requireAuth, async (req, res) => {
   try {
     const projects = await Project.find({ userId: req.userId }).sort({ updatedAt: -1 });
-    res.status(200).json({ projects: projects.map(summary), error: '' });
+    const used = projects.reduce((total, project) => total + (project.size || 0), 0);
+    res.status(200).json({ projects: projects.map(summary), storage: { used, limit: MAX_STORAGE }, error: '' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -431,7 +459,11 @@ app.post('/api/projects', requireAuth, (req, res) => {
   upload.single('file')(req, res, async (uploadErr) => {
     if (uploadErr) {
       const tooBig = uploadErr.code === 'LIMIT_FILE_SIZE';
-      return res.status(tooBig ? 413 : 400).json({ error: tooBig ? `The file must be smaller than ${MAX_PROJECT_MB} MB` : uploadErr.message, maxProjectBytes: MAX_UPLOAD });
+      return res.status(tooBig ? 413 : 400).json({
+        error: tooBig ? `The file must be smaller than ${MAX_PROJECT_MB} MB` : uploadErr.message,
+        code: tooBig ? 'too-big' : 'bad-upload',
+        maxProjectBytes: MAX_UPLOAD
+      });
     }
     if (!req.file) return res.status(400).json({ error: 'Choose a PDF or .partwise file to upload' });
     try {
@@ -448,6 +480,22 @@ app.post('/api/projects', requireAuth, (req, res) => {
         }
       } else {
         return res.status(400).json({ error: 'That file is not a PDF or a Partwise project file' });
+      }
+
+      // Room in the account, and on the server
+      const used = await storageUsed(req.userId);
+      if (used + pdf.length > MAX_STORAGE) {
+        return res.status(413).json({
+          error: `Your projects are full: this score needs ${formatBytes(pdf.length)} and you have ${formatBytes(Math.max(0, MAX_STORAGE - used))} left. Delete a project to make room.`,
+          code: 'storage-full',
+          storage: { used, limit: MAX_STORAGE }
+        });
+      }
+      if ((await diskFree()) - pdf.length < MIN_FREE_DISK_MB * 1048576) {
+        return res.status(507).json({
+          error: "The server is out of space for new projects right now. Your score still works in the editor, saved in this browser.",
+          code: 'server-full'
+        });
       }
 
       const fields = layout

@@ -16,6 +16,7 @@ import {
   refreshSignIn,
   saveCloudLayout,
   SignedOutError,
+  NoRoomError,
   TooBigError,
 } from './model/cloud.ts';
 import { looksLikePartwiseFile, partwiseFileName, readPartwiseFile, writePartwiseFile } from './model/partwiseFile.ts';
@@ -201,8 +202,8 @@ export function App() {
   const [cloud, setCloud] = useState<CloudState>('local');
   const [cloudSavedAt, setCloudSavedAt] = useState<number | null>(null);
   const [retry, setRetry] = useState(0);
-  // The project (by id) found too big for the user's projects, if any.
-  const [tooBigFor, setTooBigFor] = useState<string | null>(null);
+  // The project (by id) that couldn't be added to the user's projects for lack of room, and why.
+  const [noRoom, setNoRoom] = useState<{ id: string; state: 'too-big' | 'full' | 'server-full' } | null>(null);
   // The layout still on its way to the server, if any (sent at once if the tab closes).
   const unsaved = useRef<ProjectDoc | null>(null);
 
@@ -237,7 +238,7 @@ export function App() {
   useEffect(() => {
     if (!doc?.cloudId) {
       unsaved.current = null;
-      setCloud(doc && doc.id === tooBigFor ? 'too-big' : 'local');
+      setCloud(doc && noRoom && doc.id === noRoom.id ? noRoom.state : 'local');
       setCloudSavedAt(null);
       return;
     }
@@ -250,7 +251,7 @@ export function App() {
     const timer = setTimeout(() => saveNow(doc), 1500);
     return () => clearTimeout(timer);
     // `token` and `retry` are here to save again after signing in or a failed save.
-  }, [doc, token, retry, saveNow, tooBigFor]);
+  }, [doc, token, retry, saveNow, noRoom]);
 
   // Closing the tab: send what's waiting straight away, and warn if it might not make it.
   useEffect(() => {
@@ -309,10 +310,12 @@ export function App() {
       setCloudSavedAt(Date.now());
       dispatch({ type: 'setCloudId', cloudId });
     } catch (error) {
-      if (error instanceof TooBigError) {
-        setTooBigFor(doc.id);
-        setCloud('too-big');
-        await confirmDialog({ title: 'Too big for your projects', message: error.message, confirmLabel: 'OK', cancelLabel: null });
+      if (error instanceof TooBigError || error instanceof NoRoomError) {
+        const state = error instanceof TooBigError ? 'too-big' : error.reason;
+        setNoRoom({ id: doc.id, state });
+        setCloud(state);
+        const title = state === 'too-big' ? 'Too big for your projects' : state === 'full' ? 'Your projects are full' : 'No room on the server';
+        await confirmDialog({ title, message: error.message, confirmLabel: 'OK', cancelLabel: null });
         return;
       }
       setCloud('local');

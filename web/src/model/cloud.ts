@@ -80,10 +80,33 @@ async function request(path: string, init: RequestInit = {}): Promise<Response> 
   if (response.status === 401) throw new SignedOutError();
   if (response.status === 404) throw new NotInProjectsError();
   if (!response.ok) {
-    const data = (await response.json().catch(() => ({}))) as { error?: string };
-    throw new Error(data.error || `The server said no (${response.status}).`);
+    const data = (await response.json().catch(() => ({}))) as { error?: string; code?: string };
+    throw new ApiError(data.error || `The server said no (${response.status}).`, data.code);
   }
   return response;
+}
+
+/** An error the API explained; `code` says which, when it gave one (server.js). */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly code?: string,
+  ) {
+    super(message);
+  }
+}
+
+/**
+ * No room for the score: the account's storage is used up ('full'), or the
+ * server's disk is nearly full ('server-full').
+ */
+export class NoRoomError extends Error {
+  constructor(
+    readonly reason: 'full' | 'server-full',
+    message: string,
+  ) {
+    super(message);
+  }
 }
 
 export interface CloudProject {
@@ -170,8 +193,12 @@ export async function createCloudProject(doc: ProjectDoc, pdf: Uint8Array): Prom
     };
     return project._id;
   } catch (error) {
-    // The server's limit is the one that counts.
-    if (error instanceof Error && /smaller than/.test(error.message)) throw new TooBigError(bytes.length, limit);
+    // The server's limits are the ones that count.
+    if (error instanceof ApiError && error.code === 'too-big') throw new TooBigError(bytes.length, limit);
+    if (error instanceof ApiError && error.code === 'storage-full') {
+      throw new NoRoomError('full', `${error.message} You can keep working on it: it's saved in this browser.`);
+    }
+    if (error instanceof ApiError && error.code === 'server-full') throw new NoRoomError('server-full', error.message);
     throw error;
   }
 }

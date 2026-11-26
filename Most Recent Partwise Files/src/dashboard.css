@@ -154,6 +154,18 @@
 }
 .dashboard-upload-button:disabled { cursor: not-allowed; opacity: 0.65; }
 
+/* ---------- storage used ---------- */
+.dashboard-projects-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.dashboard-projects-head h2 { margin-bottom: 0; }
+.dashboard-storage { min-width: 200px; display: flex; flex-direction: column; gap: 6px; color: var(--pw-muted); font-size: 13px; text-align: right; }
+.dashboard-storage-bar { height: 6px; overflow: hidden; border: 1px solid var(--pw-line); border-radius: 6px; background: #fff; }
+.dashboard-storage-bar > div { height: 100%; border-radius: inherit; background: var(--pw-frame); transition: width 0.3s; }
+.dashboard-storage.nearly-full { color: #8a5a00; }
+.dashboard-storage.nearly-full .dashboard-storage-bar > div { background: #c27c0e; }
+@media (max-width: 600px) {
+  .dashboard-storage { width: 100%; text-align: left; }
+}
+
 /* ---------- project list ---------- */
 .dashboard-project-list { display: flex; flex-direction: column; margin-top: 16px; border-top: 1px solid #e4e2d9; }
 .dashboard-project-item {

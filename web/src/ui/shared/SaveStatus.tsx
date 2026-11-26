@@ -86,6 +86,27 @@ export function SaveStatus({
           Only in this browser · too big for your projects{detecting}
         </span>
       );
+    case 'full':
+      return (
+        <a
+          className={`${className} local`}
+          role="status"
+          href={DASHBOARD_URL}
+          title="Your projects have no room left. Delete one on your dashboard, then save this again. It's saved in this browser meanwhile."
+        >
+          Only in this browser · your projects are full{detecting}
+        </a>
+      );
+    case 'server-full':
+      return (
+        <span
+          className={`${className} local`}
+          role="status"
+          title="The server is out of space for new projects right now. It's saved in this browser; use the download button to keep a copy."
+        >
+          Only in this browser · no room on the server{detecting}
+        </span>
+      );
     default: {
       const label =
         saveState === 'saving' ? 'Saving…' : saveState === 'error' ? 'Not saved' : signedIn ? 'Only in this browser' : 'Saved in this browser';

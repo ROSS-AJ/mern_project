@@ -333,6 +333,28 @@ async function shrinkForUpload(file: File): Promise<Blob> {
   }
 }
 
+/** "12 MB of 100 MB used", with a bar that turns amber near the limit. */
+function StorageMeter({ used, limit, format }: { used: number; limit: number; format: (bytes: number) => string }) {
+  const share = limit > 0 ? Math.min(1, used / limit) : 0
+  return (
+    <div className={`dashboard-storage${share >= 0.9 ? ' nearly-full' : ''}`} title="Space your scores use. Deleting a project frees its space.">
+      <span>
+        {format(used)} of {format(limit)} used
+      </span>
+      <div
+        className="dashboard-storage-bar"
+        role="meter"
+        aria-label="Storage used"
+        aria-valuemin={0}
+        aria-valuemax={limit}
+        aria-valuenow={used}
+      >
+        <div style={{ width: `${share * 100}%` }} />
+      </div>
+    </div>
+  )
+}
+
 function projectTitle(project: Project) {
   return project.title || project.originalName.replace(/\.pdf$/i, '') || 'Untitled score'
 }
@@ -359,7 +381,11 @@ function DashboardScreen() {
   // The project whose parts are being exported, and how far it's got
   const [exporting, setExporting] = useState<{ id: string; done: number; total: number } | null>(null)
   // A file too big for the user's projects, offered to the editor instead
-  const [tooBig, setTooBig] = useState<{ file: File; size: number } | null>(null)
+  // too-big: the file is over the per-project limit; full: the account's storage
+  // is used up; server-full: the server is out of disk space
+  const [tooBig, setTooBig] = useState<{ file: File; size: number; reason: 'too-big' | 'full' | 'server-full' } | null>(null)
+  // How much of the account's storage the scores use
+  const [storage, setStorage] = useState<{ used: number; limit: number } | null>(null)
   const [maxBytes, setMaxBytes] = useState(DEFAULT_MAX_PROJECT_BYTES)
 
   const token = localStorage.getItem('authToken')
@@ -403,6 +429,7 @@ function DashboardScreen() {
         }
 
         setProjects(data.projects)
+        if (data.storage) setStorage(data.storage)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Could not load projects.')
       } finally {
@@ -452,7 +479,11 @@ function DashboardScreen() {
       // Shrink the score first, without changing how it looks
       const upload = await shrinkForUpload(file)
       if (upload.size > maxBytes) {
-        setTooBig({ file, size: upload.size })
+        setTooBig({ file, size: upload.size, reason: 'too-big' })
+        return
+      }
+      if (storage && storage.used + upload.size > storage.limit) {
+        setTooBig({ file, size: upload.size, reason: 'full' })
         return
       }
 
@@ -469,8 +500,10 @@ function DashboardScreen() {
 
       const data = await response.json()
 
-      if (response.status === 413) {
-        setTooBig({ file, size: upload.size })
+      if (response.status === 413 || response.status === 507) {
+        const reason = data.code === 'storage-full' ? 'full' : data.code === 'server-full' ? 'server-full' : 'too-big'
+        if (data.storage) setStorage(data.storage)
+        setTooBig({ file, size: upload.size, reason })
         return
       }
       if (!response.ok) {
@@ -478,6 +511,7 @@ function DashboardScreen() {
       }
 
       setProjects((current) => [data.project, ...current])
+      setStorage((current) => current && { ...current, used: current.used + (data.project.size || 0) })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'PDF upload failed.')
     } finally {
@@ -620,6 +654,7 @@ function DashboardScreen() {
           (item) => (item._id || item.id) !== projectId
         )
       )
+      setStorage((current) => current && { ...current, used: Math.max(0, current.used - (project.size || 0)) })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not delete project.')
     }
@@ -690,11 +725,24 @@ function DashboardScreen() {
 
       {tooBig && (
         <div className="dashboard-notice" role="alert">
-          <p>
-            <strong>{tooBig.file.name}</strong> is {formatFileSize(tooBig.size)}, and projects can hold up to{' '}
-            {formatFileSize(maxBytes)}, even after shrinking it as far as it goes without lowering its quality. You can
-            still work on it in the editor: it's kept in this browser, not on your dashboard.
-          </p>
+          {tooBig.reason === 'too-big' ? (
+            <p>
+              <strong>{tooBig.file.name}</strong> is {formatFileSize(tooBig.size)}, and projects can hold up to{' '}
+              {formatFileSize(maxBytes)}, even after shrinking it as far as it goes without lowering its quality. You can
+              still work on it in the editor: it's kept in this browser, not on your dashboard.
+            </p>
+          ) : tooBig.reason === 'full' ? (
+            <p>
+              <strong>Your projects are full.</strong> {tooBig.file.name} needs {formatFileSize(tooBig.size)}
+              {storage ? <>, and you have {formatFileSize(Math.max(0, storage.limit - storage.used))} left</> : null}.
+              Delete a project to make room, or work on it in the editor: it's kept in this browser, not on your dashboard.
+            </p>
+          ) : (
+            <p>
+              <strong>The server is out of space for new projects right now.</strong> You can still work on{' '}
+              {tooBig.file.name} in the editor: it's kept in this browser, not on your dashboard.
+            </p>
+          )}
           <div className="dashboard-notice-actions">
             <button type="button" className="dashboard-edit-button" onClick={handleOpenInBrowserOnly}>
               Open in the editor
@@ -707,7 +755,10 @@ function DashboardScreen() {
       )}
 
       <section className="dashboard-projects">
-        <h2>My Projects</h2>
+        <div className="dashboard-projects-head">
+          <h2>My Projects</h2>
+          {storage && <StorageMeter used={storage.used} limit={storage.limit} format={formatFileSize} />}
+        </div>
 
         {isLoading ? (
           <p>Loading your projects...</p>
