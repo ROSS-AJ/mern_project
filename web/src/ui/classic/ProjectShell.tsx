@@ -15,7 +15,7 @@ const STEPS: { step: Step; label: string }[] = [
   { step: 'export', label: 'Export' },
 ];
 
-export function ProjectShell({ onClose, saveState }: { onClose: () => void; saveState: SaveState }) {
+export function ProjectShell({ onClose, backLabel, saveState }: { onClose: () => void; backLabel: string; saveState: SaveState }) {
   const { doc, edit, undo, redo, canUndo, canRedo, cloud, signedIn, downloadProject, saveToAccount } = useEditor();
   const { detectionDone, goTo } = useStepGate();
   const review = allSystems(doc).filter(({ system }) => system.status === 'review').length;
@@ -25,7 +25,7 @@ export function ProjectShell({ onClose, saveState }: { onClose: () => void; save
     <div className="shell">
       <header className="topbar">
         <div className="topbar-left">
-          <button className="icon-button" aria-label="Back to home" title="Back to home" onClick={onClose}>
+          <button className="icon-button" aria-label={backLabel} title={backLabel} onClick={onClose}>
             <Icon name="arrowLeft" />
           </button>
           <div className="title-block">

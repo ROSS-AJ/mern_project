@@ -24,6 +24,8 @@ import { looksLikePartwiseFile, partwiseFileName, readPartwiseFile, writePartwis
 import { loadLastProject, peekLastProject, saveProject, startNewProject } from './model/storage.ts';
 import type { ProjectDoc, Step } from './model/types.ts';
 import { newProject } from './model/types.ts';
+import { returnTo, setReturnTo } from './model/returnTo.ts';
+import { DASHBOARD_URL } from './site.ts';
 import { analyzePage } from './pdf/analyze.ts';
 import { downloadBytes } from './pdf/exportParts.ts';
 import { closePdf, loadPdf } from './pdf/render.ts';
@@ -72,7 +74,9 @@ export function App() {
   useEffect(() => {
     const url = new URL(window.location.href);
     if (!url.searchParams.has('continue')) return;
+    if (url.searchParams.get('from') === 'dashboard') setReturnTo('dashboard');
     url.searchParams.delete('continue');
+    url.searchParams.delete('from');
     window.history.replaceState(null, '', url);
     void continueProject();
     // Runs once, for the address the page opened with.
@@ -106,6 +110,7 @@ export function App() {
   const [openingCloud, setOpeningCloud] = useState(() => new URLSearchParams(window.location.search).get('project'));
   useEffect(() => {
     if (!openingCloud) return;
+    setReturnTo('dashboard');
     (async () => {
       try {
         const { project, pdf: bytes } = await fetchCloudProject(openingCloud);
@@ -135,10 +140,21 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const closeProject = useCallback(() => {
-    if (doc) void saveProject(doc);
-    if (doc?.cloudId && unsaved.current) void saveCloudLayout(doc.cloudId, unsaved.current).catch(() => undefined);
+  /** Back: to the dashboard if the project came from there, else this app's home screen. */
+  const closeProject = useCallback(async () => {
+    const pending = doc?.cloudId ? unsaved.current : null;
     unsaved.current = null;
+    if (returnTo() === 'dashboard') {
+      // Leaving the page: finish saving first, so the dashboard shows the latest.
+      await Promise.all([
+        doc ? saveProject(doc).catch(() => undefined) : undefined,
+        pending?.cloudId ? saveCloudLayout(pending.cloudId, pending, true).catch(() => undefined) : undefined,
+      ]);
+      window.location.href = DASHBOARD_URL;
+      return;
+    }
+    if (doc) void saveProject(doc);
+    if (pending?.cloudId) void saveCloudLayout(pending.cloudId, pending).catch(() => undefined);
     dispatch({ type: 'close' });
     closePdf(pdf);
     setPdf(null);
@@ -432,12 +448,26 @@ export function App() {
     <>
       {editor ? (
         <EditorContext.Provider value={editor}>
-          <ProjectShell onClose={closeProject} saveState={saveState} />
+          <ProjectShell
+            onClose={() => void closeProject()}
+            backLabel={returnTo() === 'dashboard' ? 'Back to your projects' : 'Back to home'}
+            saveState={saveState}
+          />
         </EditorContext.Provider>
       ) : openingCloud ? (
         <p className="opening-project" style={{ padding: 32, fontFamily: 'inherit' }}>Opening your project…</p>
       ) : (
-        <Home onContinue={continueProject} onCreate={createProject} error={openError} />
+        <Home
+          onContinue={() => {
+            setReturnTo('home');
+            void continueProject();
+          }}
+          onCreate={(file) => {
+            setReturnTo('home');
+            void createProject(file);
+          }}
+          error={openError}
+        />
       )}
       <ConfirmHost />
       {showSwitcher() && (
