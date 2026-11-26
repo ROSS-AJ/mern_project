@@ -122,15 +122,58 @@ export async function saveCloudLayout(id: string, doc: ProjectDoc, keepalive = f
   });
 }
 
-/** Adds a project to the user's projects (as a .partwise file); returns its id. */
+/** Used if the server can't be asked; matches server.js's default. */
+const DEFAULT_MAX_PROJECT_BYTES = 25 * 1024 * 1024;
+
+/** The biggest file a project in the user's projects can hold. */
+export async function maxProjectBytes(): Promise<number> {
+  try {
+    const data = (await (await fetch(`${API_BASE}/limits`)).json()) as { maxProjectBytes?: unknown };
+    return typeof data.maxProjectBytes === 'number' ? data.maxProjectBytes : DEFAULT_MAX_PROJECT_BYTES;
+  } catch {
+    return DEFAULT_MAX_PROJECT_BYTES;
+  }
+}
+
+export function formatMegabytes(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  const mb = bytes / (1024 * 1024);
+  return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`;
+}
+
+/** The score is too big for the user's projects, even after shrinking it. */
+export class TooBigError extends Error {
+  constructor(
+    readonly size: number,
+    readonly limit: number,
+  ) {
+    super(
+      `This score is ${formatMegabytes(size)}, and projects can hold up to ${formatMegabytes(limit)}, so it can't be saved to your projects. ` +
+        "You can keep working on it: it's saved in this browser, and the download button saves a copy you can keep.",
+    );
+  }
+}
+
+/**
+ * Adds a project to the user's projects (as a .partwise file); returns its id.
+ * The PDF is shrunk first without changing how it looks (see pdf/shrink.ts).
+ */
 export async function createCloudProject(doc: ProjectDoc, pdf: Uint8Array): Promise<string> {
+  const [limit, smaller] = await Promise.all([maxProjectBytes(), import('../pdf/shrink.ts').then(({ shrinkPdf }) => shrinkPdf(pdf))]);
+  const bytes = writePartwiseFile(doc, smaller, { squeezePdf: true });
+  if (bytes.length > limit) throw new TooBigError(bytes.length, limit);
   const form = new FormData();
-  const bytes = writePartwiseFile(doc, pdf);
   form.append('file', new Blob([bytes as BlobPart], { type: 'application/zip' }), partwiseFileName(doc));
-  const { project } = (await (await request('/projects', { method: 'POST', body: form })).json()) as {
-    project: { _id: string };
-  };
-  return project._id;
+  try {
+    const { project } = (await (await request('/projects', { method: 'POST', body: form })).json()) as {
+      project: { _id: string };
+    };
+    return project._id;
+  } catch (error) {
+    // The server's limit is the one that counts.
+    if (error instanceof Error && /smaller than/.test(error.message)) throw new TooBigError(bytes.length, limit);
+    throw error;
+  }
 }
 
 /**

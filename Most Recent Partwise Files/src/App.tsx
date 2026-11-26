@@ -296,6 +296,45 @@ type Project = {
   updatedAt?: string
 }
 
+/** Used until the server says otherwise; matches server.js's default. */
+const DEFAULT_MAX_PROJECT_BYTES = 25 * 1024 * 1024
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  document.body.append(link)
+  link.click()
+  link.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 10000)
+}
+
+/**
+ * The file to upload, made as small as it goes without changing how the score
+ * looks (see web/src/pdf/shrink.ts). A .partwise file is rewritten with its
+ * PDF shrunk and deflated.
+ */
+async function shrinkForUpload(file: File): Promise<Blob> {
+  try {
+    const [{ shrinkPdf }, { readPartwiseFile, writePartwiseFile }] = await Promise.all([
+      import('@editor/pdf/shrink.ts'),
+      import('@editor/model/partwiseFile.ts'),
+    ])
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    if (/\.partwise$/i.test(file.name)) {
+      const saved = readPartwiseFile(bytes)
+      const packed = writePartwiseFile(saved.doc, await shrinkPdf(saved.pdf), { squeezePdf: true })
+      return packed.length < file.size ? new Blob([packed as BlobPart], { type: 'application/zip' }) : file
+    }
+    const smaller = await shrinkPdf(bytes)
+    return smaller.length < file.size ? new Blob([smaller as BlobPart], { type: 'application/pdf' }) : file
+  } catch {
+    // Not readable here: let the server decide
+    return file
+  }
+}
+
 function projectTitle(project: Project) {
   return project.title || project.originalName.replace(/\.pdf$/i, '') || 'Untitled score'
 }
@@ -316,8 +355,26 @@ function DashboardScreen() {
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // The project being renamed, and the name being typed
+  const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(null)
+  const renameCancelled = useRef(false)
+  // The project whose parts are being exported, and how far it's got
+  const [exporting, setExporting] = useState<{ id: string; done: number; total: number } | null>(null)
+  // A file too big for the user's projects, offered to the editor instead
+  const [tooBig, setTooBig] = useState<{ file: File; size: number } | null>(null)
+  const [maxBytes, setMaxBytes] = useState(DEFAULT_MAX_PROJECT_BYTES)
 
   const token = localStorage.getItem('authToken')
+
+  // The server says how big a project can be
+  useEffect(() => {
+    fetch(`${API_BASE}/limits`)
+      .then((response) => response.json())
+      .then((data: { maxProjectBytes?: unknown }) => {
+        if (typeof data.maxProjectBytes === 'number') setMaxBytes(data.maxProjectBytes)
+      })
+      .catch(() => undefined)
+  }, [])
 
   useEffect(() => {
     async function loadProjects() {
@@ -372,22 +429,17 @@ function DashboardScreen() {
 
   async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
+    event.target.value = ''
     if (!file) return
 
     setError('')
+    setTooBig(null)
 
     const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
     const isProjectFile = /\.partwise$/i.test(file.name)
 
     if (!isPdf && !isProjectFile) {
       setError('Please select a PDF or a .partwise project file.')
-      event.target.value = ''
-      return
-    }
-
-    if (file.size > 30 * 1024 * 1024) {
-      setError('The file must be smaller than 30 MB.')
-      event.target.value = ''
       return
     }
 
@@ -399,8 +451,15 @@ function DashboardScreen() {
     setIsUploading(true)
 
     try {
+      // Shrink the score first, without changing how it looks
+      const upload = await shrinkForUpload(file)
+      if (upload.size > maxBytes) {
+        setTooBig({ file, size: upload.size })
+        return
+      }
+
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', upload, file.name)
 
       const response = await fetch(`${API_BASE}/projects`, {
         method: 'POST',
@@ -412,6 +471,10 @@ function DashboardScreen() {
 
       const data = await response.json()
 
+      if (response.status === 413) {
+        setTooBig({ file, size: upload.size })
+        return
+      }
       if (!response.ok) {
         throw new Error(data.error || 'PDF upload failed.')
       }
@@ -421,7 +484,80 @@ function DashboardScreen() {
       setError(err instanceof Error ? err.message : 'PDF upload failed.')
     } finally {
       setIsUploading(false)
-      event.target.value = ''
+    }
+  }
+
+  // Too big for the dashboard: it can still be worked on in the editor,
+  // kept in this browser only
+  async function handleOpenInBrowserOnly() {
+    if (!tooBig) return
+    try {
+      const { keepInBrowser } = await import('@editor/model/handoff.ts')
+      await keepInBrowser(tooBig.file)
+      window.location.href = `${EDITOR_URL}?continue`
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not open this file in the editor.')
+    }
+  }
+
+  async function handleRename(project: Project, title: string) {
+    const projectId = project._id || project.id
+    setRenaming(null)
+    const name = title.trim()
+    if (!projectId || !token || !name || name === projectTitle(project)) return
+
+    try {
+      const response = await fetch(`${API_BASE}/projects/${projectId}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title: name }),
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || 'Could not rename this project.')
+      }
+      setProjects((current) =>
+        current.map((item) => ((item._id || item.id) === projectId ? { ...item, ...data.project } : item)),
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not rename this project.')
+    }
+  }
+
+  // Makes the part PDFs here in the browser, the same way the editor's
+  // Export step does, from the project's layout and score
+  async function handleExportParts(project: Project) {
+    const projectId = project._id || project.id
+    if (!projectId || !token || exporting) return
+
+    setError('')
+    setExporting({ id: projectId, done: 0, total: project.partNames?.length ?? 0 })
+    try {
+      const headers = { Authorization: `Bearer ${token}` }
+      const [projectResponse, fileResponse, { exportPartsZip }] = await Promise.all([
+        fetch(`${API_BASE}/projects/${projectId}`, { headers }),
+        fetch(`${API_BASE}/projects/${projectId}/file`, { headers }),
+        import('@editor/pdf/exportProject.ts'),
+      ])
+      if (!projectResponse.ok || !fileResponse.ok) {
+        throw new Error('Could not load this project.')
+      }
+      const { project: full } = await projectResponse.json()
+      if (!full.pageLayout) {
+        throw new Error('This project has no parts yet. Open it in the editor to set them up.')
+      }
+      const pdf = new Uint8Array(await fileResponse.arrayBuffer())
+      const { bytes, fileName } = await exportPartsZip(full.pageLayout, pdf, (done, total) =>
+        setExporting({ id: projectId, done, total }),
+      )
+      downloadBlob(new Blob([bytes as BlobPart], { type: 'application/zip' }), fileName)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not export the parts.')
+    } finally {
+      setExporting(null)
     }
   }
 
@@ -431,38 +567,6 @@ function DashboardScreen() {
     const projectId = project._id || project.id
     if (!projectId) return
     window.location.href = `${EDITOR_URL}?project=${encodeURIComponent(projectId)}`
-  }
-
-  // Shows the score PDF in a new tab
-  async function handleViewPdf(project: Project) {
-    const projectId = project._id || project.id
-    if (!projectId || !token) return
-
-    // Open the tab right away so the browser doesn't block it as a pop-up
-    const newTab = window.open('', '_blank')
-    if (!newTab) {
-      setError('Please allow pop-ups to view the PDF.')
-      return
-    }
-
-    try {
-      const response = await fetch(`${API_BASE}/projects/${projectId}/file`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error('Could not open this PDF.')
-      }
-
-      const pdfUrl = URL.createObjectURL(await response.blob())
-      newTab.location.href = pdfUrl
-      setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000)
-    } catch (err) {
-      newTab.close()
-      setError(err instanceof Error ? err.message : 'Could not open this PDF.')
-    }
   }
 
   // Downloads a .partwise file: the PDF plus everything done in the editor,
@@ -483,15 +587,7 @@ function DashboardScreen() {
         throw new Error(data.error || 'Could not download this project.')
       }
 
-      const blob = await response.blob()
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `${projectTitle(project).replace(/[\\/:*?"<>|]+/g, '').trim() || 'score'}.partwise`
-      document.body.append(link)
-      link.click()
-      link.remove()
-      setTimeout(() => URL.revokeObjectURL(url), 10000)
+      downloadBlob(await response.blob(), `${projectTitle(project).replace(/[\\/:*?"<>|]+/g, '').trim() || 'score'}.partwise`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not download this project.')
     }
@@ -593,6 +689,24 @@ function DashboardScreen() {
 
       {error && <p role="alert">{error}</p>}
 
+      {tooBig && (
+        <div className="dashboard-notice" role="alert">
+          <p>
+            <strong>{tooBig.file.name}</strong> is {formatFileSize(tooBig.size)}, and projects can hold up to{' '}
+            {formatFileSize(maxBytes)}, even after shrinking it as far as it goes without lowering its quality. You can
+            still work on it in the editor: it's kept in this browser, not on your dashboard.
+          </p>
+          <div className="dashboard-notice-actions">
+            <button type="button" className="dashboard-edit-button" onClick={handleOpenInBrowserOnly}>
+              Open in the editor
+            </button>
+            <button type="button" className="dashboard-download-button" onClick={() => setTooBig(null)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       <section className="dashboard-projects">
         <h2>My Projects</h2>
 
@@ -618,7 +732,37 @@ function DashboardScreen() {
                 <div className="dashboard-empty-icon">♫</div>
 
                 <div className="dashboard-project-text">
-                  <h3>{projectTitle(project)}</h3>
+                  {renaming && renaming.id === (project._id || project.id) ? (
+                    <input
+                      className="dashboard-rename-input"
+                      aria-label="Project name"
+                      value={renaming.title}
+                      autoFocus
+                      maxLength={200}
+                      onFocus={(event) => event.target.select()}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => setRenaming({ id: renaming.id, title: event.target.value })}
+                      onKeyDown={(event) => {
+                        event.stopPropagation()
+                        // Leaving the field saves; Escape leaves it without saving
+                        if (event.key === 'Enter') event.currentTarget.blur()
+                        if (event.key === 'Escape') {
+                          renameCancelled.current = true
+                          event.currentTarget.blur()
+                        }
+                      }}
+                      onBlur={() => {
+                        if (renameCancelled.current) {
+                          renameCancelled.current = false
+                          setRenaming(null)
+                        } else {
+                          handleRename(project, renaming.title)
+                        }
+                      }}
+                    />
+                  ) : (
+                    <h3>{projectTitle(project)}</h3>
+                  )}
                   <p>{projectDetails(project, formatFileSize)}</p>
                 </div>
 
@@ -637,13 +781,31 @@ function DashboardScreen() {
                   <button
                     type="button"
                     className="dashboard-download-button"
-                    title="Open the score PDF in a new tab"
+                    disabled={!project.partNames?.length || exporting !== null}
+                    title={
+                      project.partNames?.length
+                        ? 'Download a PDF for each player (in a zip), made here in your browser'
+                        : 'Open it in the editor and set up the players first'
+                    }
                     onClick={(event) => {
                       event.stopPropagation()
-                      handleViewPdf(project)
+                      handleExportParts(project)
                     }}
                   >
-                    View PDF
+                    {exporting && exporting.id === (project._id || project.id)
+                      ? `Exporting ${Math.min(exporting.done + 1, exporting.total)}/${exporting.total}…`
+                      : 'Export parts'}
+                  </button>
+                  <button
+                    type="button"
+                    className="dashboard-download-button"
+                    title="Rename this project"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      setRenaming({ id: project._id || project.id || '', title: projectTitle(project) })
+                    }}
+                  >
+                    Rename
                   </button>
                   <button
                     type="button"

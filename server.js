@@ -306,8 +306,16 @@ app.post('/api/reset-password', async (req, res) => {
 const UPLOAD_DIR = path.resolve(process.env.UPLOAD_DIR || path.join(__dirname, 'uploads'));
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const PARTWISE_VERSION = 1;
-const MAX_UPLOAD = 30 * 1024 * 1024;
+// Biggest score (PDF or .partwise file) a project can hold, in MB. Bigger
+// ones still work in the editor, saved in the browser only.
+const MAX_PROJECT_MB = Number(process.env.MAX_PROJECT_MB) > 0 ? Number(process.env.MAX_PROJECT_MB) : 25;
+const MAX_UPLOAD = Math.round(MAX_PROJECT_MB * 1024 * 1024);
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_UPLOAD } });
+
+// GET api limits, what the site and editor check before uploading
+app.get('/api/limits', (req, res) => {
+  res.status(200).json({ maxProjectBytes: MAX_UPLOAD, error: '' });
+});
 
 // Needs "Authorization: Bearer <token>" from /api/login; sets req.userId
 function requireAuth(req, res, next) {
@@ -423,7 +431,7 @@ app.post('/api/projects', requireAuth, (req, res) => {
   upload.single('file')(req, res, async (uploadErr) => {
     if (uploadErr) {
       const tooBig = uploadErr.code === 'LIMIT_FILE_SIZE';
-      return res.status(tooBig ? 413 : 400).json({ error: tooBig ? 'The file must be smaller than 30 MB' : uploadErr.message });
+      return res.status(tooBig ? 413 : 400).json({ error: tooBig ? `The file must be smaller than ${MAX_PROJECT_MB} MB` : uploadErr.message, maxProjectBytes: MAX_UPLOAD });
     }
     if (!req.file) return res.status(400).json({ error: 'Choose a PDF or .partwise file to upload' });
     try {
@@ -500,6 +508,25 @@ app.put('/api/projects/:id', requireAuth, async (req, res) => {
       { $set: { ...layoutFields(clean), pageLayout: clean } },
       { new: true }
     );
+    res.status(200).json({ project: summary(updated), error: '' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH api projects/:id, renames a project
+// In format title; the editor's copy of the title follows
+app.patch('/api/projects/:id', requireAuth, async (req, res) => {
+  try {
+    const title = String((req.body || {}).title || '').trim();
+    if (!title) return res.status(400).json({ error: 'Give the project a name' });
+    if (title.length > 200) return res.status(400).json({ error: 'The name must be 200 characters or fewer' });
+    const project = await findOwnProject(req, res, '_id pageLayout');
+    if (!project) return;
+    const update = { title };
+    // Newer than any copy in a browser, so the editor picks up the new name
+    if (project.pageLayout) update.pageLayout = { ...project.pageLayout, title, updatedAt: Date.now() };
+    const updated = await Project.findOneAndUpdate({ _id: project._id }, { $set: update }, { new: true });
     res.status(200).json({ project: summary(updated), error: '' });
   } catch (err) {
     res.status(500).json({ error: err.message });

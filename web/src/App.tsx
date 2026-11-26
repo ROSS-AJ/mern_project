@@ -18,11 +18,12 @@ import {
   refreshSignIn,
   saveCloudLayout,
   SignedOutError,
+  TooBigError,
 } from './model/cloud.ts';
 import { looksLikePartwiseFile, partwiseFileName, readPartwiseFile, writePartwiseFile } from './model/partwiseFile.ts';
 import { loadLastProject, peekLastProject, saveProject, startNewProject } from './model/storage.ts';
 import type { ProjectDoc, Step } from './model/types.ts';
-import { emptyPage, uid } from './model/types.ts';
+import { newProject } from './model/types.ts';
 import { analyzePage } from './pdf/analyze.ts';
 import { downloadBytes } from './pdf/exportParts.ts';
 import { closePdf, loadPdf } from './pdf/render.ts';
@@ -186,6 +187,8 @@ export function App() {
   const [cloud, setCloud] = useState<CloudState>('local');
   const [cloudSavedAt, setCloudSavedAt] = useState<number | null>(null);
   const [retry, setRetry] = useState(0);
+  // The project (by id) found too big for the user's projects, if any.
+  const [tooBigFor, setTooBigFor] = useState<string | null>(null);
   // The layout still on its way to the server, if any (sent at once if the tab closes).
   const unsaved = useRef<ProjectDoc | null>(null);
 
@@ -220,7 +223,7 @@ export function App() {
   useEffect(() => {
     if (!doc?.cloudId) {
       unsaved.current = null;
-      setCloud('local');
+      setCloud(doc && doc.id === tooBigFor ? 'too-big' : 'local');
       setCloudSavedAt(null);
       return;
     }
@@ -233,7 +236,7 @@ export function App() {
     const timer = setTimeout(() => saveNow(doc), 1500);
     return () => clearTimeout(timer);
     // `token` and `retry` are here to save again after signing in or a failed save.
-  }, [doc, token, retry, saveNow]);
+  }, [doc, token, retry, saveNow, tooBigFor]);
 
   // Closing the tab: send what's waiting straight away, and warn if it might not make it.
   useEffect(() => {
@@ -292,6 +295,12 @@ export function App() {
       setCloudSavedAt(Date.now());
       dispatch({ type: 'setCloudId', cloudId });
     } catch (error) {
+      if (error instanceof TooBigError) {
+        setTooBigFor(doc.id);
+        setCloud('too-big');
+        await confirmDialog({ title: 'Too big for your projects', message: error.message, confirmLabel: 'OK', cancelLabel: null });
+        return;
+      }
       setCloud('local');
       await confirmDialog({
         title: "Couldn't save to your projects",
@@ -459,21 +468,4 @@ async function newestVersion(local: ProjectDoc): Promise<ProjectDoc> {
     // Offline or signed out: this browser's copy is the best there is.
     return local;
   }
-}
-
-function newProject(fileName: string, title: string, pageCount: number): ProjectDoc {
-  const now = Date.now();
-  return {
-    id: uid(),
-    title,
-    fileName,
-    pageCount,
-    createdAt: now,
-    updatedAt: now,
-    step: 'setup',
-    parts: [],
-    pages: Array.from({ length: pageCount }, emptyPage),
-    regions: [],
-    dismissedIssues: [],
-  };
 }

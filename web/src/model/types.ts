@@ -163,3 +163,21 @@ export function migrateDoc(doc: ProjectDoc): ProjectDoc {
 export function emptyPage(): PageDoc {
   return { width: 0, height: 0, angle: 0, detected: false, systems: [] };
 }
+
+/** A fresh project for a score with this many pages. */
+export function newProject(fileName: string, title: string, pageCount: number): ProjectDoc {
+  const now = Date.now();
+  return {
+    id: uid(),
+    title,
+    fileName,
+    pageCount,
+    createdAt: now,
+    updatedAt: now,
+    step: 'setup',
+    parts: [],
+    pages: Array.from({ length: pageCount }, emptyPage),
+    regions: [],
+    dismissedIssues: [],
+  };
+}
