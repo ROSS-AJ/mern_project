@@ -78,8 +78,8 @@ and the editor links back to `/login` and `/dashboard`.
     the account's (by `updatedAt`), and coming back to the tab picks up
     changes made in another browser.
   - Projects hold scores up to 25 MB (`MAX_PROJECT_MB` on the server), and
-    each account can store 100 MB of scores in all (`MAX_STORAGE_MB`); the
-    dashboard shows how much is used. Uploads also stop while the server's
+    an account can have up to 10 projects (`MAX_PROJECTS`); the dashboard
+    shows how many are used. Uploads also stop while the server's
     disk has under 1 GB free (`MIN_FREE_DISK_MB`), whatever the accounts.
     Before uploading, the PDF is shrunk without changing how it looks
     (`pdf/shrink.ts`: pdf-lib repacks it; no image is recompressed), which
@@ -98,9 +98,9 @@ API (all need `Authorization: Bearer <token>` from `/api/login`):
 
 | Route | Does |
 |---|---|
-| `GET /api/limits` | `{ maxProjectBytes, maxStorageBytes }`: the biggest file a project can hold, and the space per account (no sign-in needed) |
+| `GET /api/limits` | `{ maxProjectBytes, maxProjects }`: the biggest file a project can hold, and how many projects an account can have (no sign-in needed) |
 | `POST /api/refresh` | A fresh one-hour token for one that hasn't run out yet |
-| `GET /api/projects` | The user's projects, newest first (no layouts), and `storage: { used, limit }` |
+| `GET /api/projects` | The user's projects, newest first (no layouts), and `maxProjects` |
 | `POST /api/projects` | Upload a PDF or `.partwise` file (form field `file`, up to 30 MB) |
 | `GET /api/projects/:id` | One project with its layout (`pageLayout`) |
 | `GET /api/projects/:id/file` | The PDF |

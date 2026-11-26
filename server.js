@@ -312,22 +312,11 @@ const MAX_PROJECT_MB = Number(process.env.MAX_PROJECT_MB) > 0 ? Number(process.e
 const MAX_UPLOAD = Math.round(MAX_PROJECT_MB * 1024 * 1024);
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_UPLOAD } });
 
-// Space each account can use for its scores, in MB
-const MAX_STORAGE_MB = Number(process.env.MAX_STORAGE_MB) > 0 ? Number(process.env.MAX_STORAGE_MB) : 100;
-const MAX_STORAGE = Math.round(MAX_STORAGE_MB * 1024 * 1024);
+// Most projects an account can have
+const MAX_PROJECTS = Number(process.env.MAX_PROJECTS) > 0 ? Math.floor(Number(process.env.MAX_PROJECTS)) : 10;
 // New uploads stop when the disk has less than this free (MB), so the system
 // and MongoDB always have room, however many accounts there are
 const MIN_FREE_DISK_MB = Number(process.env.MIN_FREE_DISK_MB) >= 0 && process.env.MIN_FREE_DISK_MB ? Number(process.env.MIN_FREE_DISK_MB) : 1024;
-
-// "640 KB", "12.5 MB"
-const formatBytes = (bytes) =>
-  bytes < 1048576 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
-
-// Bytes of scores the user has stored
-async function storageUsed(userId) {
-  const projects = await Project.find({ userId }).select('size');
-  return projects.reduce((total, project) => total + (project.size || 0), 0);
-}
 
 // Bytes free on the disk the scores are saved to (Infinity if it can't be read)
 async function diskFree() {
@@ -341,7 +330,7 @@ async function diskFree() {
 
 // GET api limits, what the site and editor check before uploading
 app.get('/api/limits', (req, res) => {
-  res.status(200).json({ maxProjectBytes: MAX_UPLOAD, maxStorageBytes: MAX_STORAGE, error: '' });
+  res.status(200).json({ maxProjectBytes: MAX_UPLOAD, maxProjects: MAX_PROJECTS, error: '' });
 });
 
 // Needs "Authorization: Bearer <token>" from /api/login; sets req.userId
@@ -446,8 +435,7 @@ function readPartwise(buffer) {
 app.get('/api/projects', requireAuth, async (req, res) => {
   try {
     const projects = await Project.find({ userId: req.userId }).sort({ updatedAt: -1 });
-    const used = projects.reduce((total, project) => total + (project.size || 0), 0);
-    res.status(200).json({ projects: projects.map(summary), storage: { used, limit: MAX_STORAGE }, error: '' });
+    res.status(200).json({ projects: projects.map(summary), maxProjects: MAX_PROJECTS, error: '' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -483,12 +471,13 @@ app.post('/api/projects', requireAuth, (req, res) => {
       }
 
       // Room in the account, and on the server
-      const used = await storageUsed(req.userId);
-      if (used + pdf.length > MAX_STORAGE) {
-        return res.status(413).json({
-          error: `Your projects are full: this score needs ${formatBytes(pdf.length)} and you have ${formatBytes(Math.max(0, MAX_STORAGE - used))} left. Delete a project to make room.`,
-          code: 'storage-full',
-          storage: { used, limit: MAX_STORAGE }
+      const count = await Project.countDocuments({ userId: req.userId });
+      if (count >= MAX_PROJECTS) {
+        return res.status(403).json({
+          error: `You have ${count} projects, the most an account can hold. Delete one to make room.`,
+          code: 'projects-full',
+          count,
+          maxProjects: MAX_PROJECTS
         });
       }
       if ((await diskFree()) - pdf.length < MIN_FREE_DISK_MB * 1048576) {

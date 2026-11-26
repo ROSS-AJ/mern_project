@@ -92,7 +92,7 @@ export function SaveStatus({
           className={`${className} local`}
           role="status"
           href={DASHBOARD_URL}
-          title="Your projects have no room left. Delete one on your dashboard, then save this again. It's saved in this browser meanwhile."
+          title="You have the most projects an account can hold. Delete one on your dashboard, then save this again. It's saved in this browser meanwhile."
         >
           Only in this browser · your projects are full{detecting}
         </a>

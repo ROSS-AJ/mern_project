@@ -333,21 +333,24 @@ async function shrinkForUpload(file: File): Promise<Blob> {
   }
 }
 
-/** "12 MB of 100 MB used", with a bar that turns amber near the limit. */
-function StorageMeter({ used, limit, format }: { used: number; limit: number; format: (bytes: number) => string }) {
-  const share = limit > 0 ? Math.min(1, used / limit) : 0
+/** "4 of 10 projects", with a bar that turns amber when one is left. */
+function ProjectMeter({ count, limit }: { count: number; limit: number }) {
+  const share = limit > 0 ? Math.min(1, count / limit) : 0
   return (
-    <div className={`dashboard-storage${share >= 0.9 ? ' nearly-full' : ''}`} title="Space your scores use. Deleting a project frees its space.">
+    <div
+      className={`dashboard-storage${count >= limit - 1 ? ' nearly-full' : ''}`}
+      title="An account can hold this many projects. Deleting one makes room for another."
+    >
       <span>
-        {format(used)} of {format(limit)} used
+        {count} of {limit} projects
       </span>
       <div
         className="dashboard-storage-bar"
         role="meter"
-        aria-label="Storage used"
+        aria-label="Projects used"
         aria-valuemin={0}
         aria-valuemax={limit}
-        aria-valuenow={used}
+        aria-valuenow={count}
       >
         <div style={{ width: `${share * 100}%` }} />
       </div>
@@ -381,11 +384,17 @@ function DashboardScreen() {
   // The project whose parts are being exported, and how far it's got
   const [exporting, setExporting] = useState<{ id: string; done: number; total: number } | null>(null)
   // A file too big for the user's projects, offered to the editor instead
-  // too-big: the file is over the per-project limit; full: the account's storage
-  // is used up; server-full: the server is out of disk space
-  const [tooBig, setTooBig] = useState<{ file: File; size: number; reason: 'too-big' | 'full' | 'server-full' } | null>(null)
-  // How much of the account's storage the scores use
-  const [storage, setStorage] = useState<{ used: number; limit: number } | null>(null)
+  // too-big: the file is over the per-project limit; full: the account has all
+  // the projects it can; server-full: the server is out of disk space
+  // count: how many projects the account has, when that's the reason
+  const [tooBig, setTooBig] = useState<{
+    file: File
+    size: number
+    reason: 'too-big' | 'full' | 'server-full'
+    count?: number
+  } | null>(null)
+  // The most projects the account can have (the server says)
+  const [maxProjects, setMaxProjects] = useState<number | null>(null)
   const [maxBytes, setMaxBytes] = useState(DEFAULT_MAX_PROJECT_BYTES)
 
   const token = localStorage.getItem('authToken')
@@ -429,7 +438,7 @@ function DashboardScreen() {
         }
 
         setProjects(data.projects)
-        if (data.storage) setStorage(data.storage)
+        if (typeof data.maxProjects === 'number') setMaxProjects(data.maxProjects)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Could not load projects.')
       } finally {
@@ -482,8 +491,8 @@ function DashboardScreen() {
         setTooBig({ file, size: upload.size, reason: 'too-big' })
         return
       }
-      if (storage && storage.used + upload.size > storage.limit) {
-        setTooBig({ file, size: upload.size, reason: 'full' })
+      if (maxProjects !== null && projects.length >= maxProjects) {
+        setTooBig({ file, size: upload.size, reason: 'full', count: projects.length })
         return
       }
 
@@ -500,10 +509,10 @@ function DashboardScreen() {
 
       const data = await response.json()
 
-      if (response.status === 413 || response.status === 507) {
-        const reason = data.code === 'storage-full' ? 'full' : data.code === 'server-full' ? 'server-full' : 'too-big'
-        if (data.storage) setStorage(data.storage)
-        setTooBig({ file, size: upload.size, reason })
+      if (data.code === 'too-big' || data.code === 'projects-full' || data.code === 'server-full') {
+        const reason = data.code === 'projects-full' ? 'full' : data.code === 'server-full' ? 'server-full' : 'too-big'
+        if (typeof data.maxProjects === 'number') setMaxProjects(data.maxProjects)
+        setTooBig({ file, size: upload.size, reason, count: typeof data.count === 'number' ? data.count : undefined })
         return
       }
       if (!response.ok) {
@@ -511,7 +520,6 @@ function DashboardScreen() {
       }
 
       setProjects((current) => [data.project, ...current])
-      setStorage((current) => current && { ...current, used: current.used + (data.project.size || 0) })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'PDF upload failed.')
     } finally {
@@ -654,7 +662,6 @@ function DashboardScreen() {
           (item) => (item._id || item.id) !== projectId
         )
       )
-      setStorage((current) => current && { ...current, used: Math.max(0, current.used - (project.size || 0)) })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not delete project.')
     }
@@ -733,9 +740,12 @@ function DashboardScreen() {
             </p>
           ) : tooBig.reason === 'full' ? (
             <p>
-              <strong>Your projects are full.</strong> {tooBig.file.name} needs {formatFileSize(tooBig.size)}
-              {storage ? <>, and you have {formatFileSize(Math.max(0, storage.limit - storage.used))} left</> : null}.
-              Delete a project to make room, or work on it in the editor: it's kept in this browser, not on your dashboard.
+              <strong>
+                You have {tooBig.count ?? projects.length} project{(tooBig.count ?? projects.length) === 1 ? '' : 's'}, the
+                most an account can hold.
+              </strong>{' '}
+              Delete one to make room
+              for {tooBig.file.name}, or work on it in the editor: it's kept in this browser, not on your dashboard.
             </p>
           ) : (
             <p>
@@ -757,7 +767,7 @@ function DashboardScreen() {
       <section className="dashboard-projects">
         <div className="dashboard-projects-head">
           <h2>My Projects</h2>
-          {storage && <StorageMeter used={storage.used} limit={storage.limit} format={formatFileSize} />}
+          {maxProjects !== null && <ProjectMeter count={projects.length} limit={maxProjects} />}
         </div>
 
         {isLoading ? (

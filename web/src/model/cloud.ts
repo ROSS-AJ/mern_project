@@ -97,7 +97,7 @@ export class ApiError extends Error {
 }
 
 /**
- * No room for the score: the account's storage is used up ('full'), or the
+ * No room for the score: the account has all the projects it can ('full'), or the
  * server's disk is nearly full ('server-full').
  */
 export class NoRoomError extends Error {
@@ -195,7 +195,7 @@ export async function createCloudProject(doc: ProjectDoc, pdf: Uint8Array): Prom
   } catch (error) {
     // The server's limits are the ones that count.
     if (error instanceof ApiError && error.code === 'too-big') throw new TooBigError(bytes.length, limit);
-    if (error instanceof ApiError && error.code === 'storage-full') {
+    if (error instanceof ApiError && error.code === 'projects-full') {
       throw new NoRoomError('full', `${error.message} You can keep working on it: it's saved in this browser.`);
     }
     if (error instanceof ApiError && error.code === 'server-full') throw new NoRoomError('server-full', error.message);

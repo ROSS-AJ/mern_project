@@ -154,7 +154,7 @@
 }
 .dashboard-upload-button:disabled { cursor: not-allowed; opacity: 0.65; }
 
-/* ---------- storage used ---------- */
+/* ---------- projects used ---------- */
 .dashboard-projects-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .dashboard-projects-head h2 { margin-bottom: 0; }
 .dashboard-storage { min-width: 200px; display: flex; flex-direction: column; gap: 6px; color: var(--pw-muted); font-size: 13px; text-align: right; }

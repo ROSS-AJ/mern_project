@@ -16,7 +16,7 @@ export interface DetectionProgress {
  * saving / saved / error = the copy in the signed-in user's projects
  * signed-out = it's in their projects, but the sign-in ran out
  * too-big    = only in this browser: the score is bigger than projects can hold
- * full       = only in this browser: the user's projects have no room left
+ * full       = only in this browser: the account has all the projects it can
  * server-full = only in this browser: the server is out of space
  */
 export type CloudState = 'local' | 'saving' | 'saved' | 'error' | 'signed-out' | 'too-big' | 'full' | 'server-full';
