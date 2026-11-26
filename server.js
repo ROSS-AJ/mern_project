@@ -321,6 +321,19 @@ function requireAuth(req, res, next) {
   }
 }
 
+// POST api refresh, swaps a sign-in that hasn't run out for a new one
+// The site and editor call it while open, so people who keep working stay signed in
+app.post('/api/refresh', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select('_id');
+    if (!user) return res.status(401).json({ error: 'Authentication required' });
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    res.status(200).json({ token, error: '' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Finds one of the signed-in user's projects, or answers 404
 async function findOwnProject(req, res, fields) {
   if (!mongoose.isValidObjectId(req.params.id)) {

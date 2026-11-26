@@ -20,6 +20,8 @@ export type CloudState = 'local' | 'saving' | 'saved' | 'error' | 'signed-out';
 
 export interface Editor {
   cloud: CloudState;
+  /** When the copy in the user's projects was last saved (ms), this session. */
+  cloudSavedAt: number | null;
   /** A sign-in from the main site is present. */
   signedIn: boolean;
   /** Downloads a .partwise file (layout and PDF). */
@@ -45,20 +47,4 @@ export function useEditor(): Editor {
   const editor = useContext(EditorContext);
   if (!editor) throw new Error('useEditor must be used inside the project editor');
   return editor;
-}
-
-/** The save note next to the title: the account copy when there is one, else this browser. */
-export function saveNote(local: 'saved' | 'saving' | 'error', cloud: CloudState): { label: string; tone: 'saved' | 'saving' | 'error' } {
-  switch (cloud) {
-    case 'saving':
-      return { label: 'Saving', tone: 'saving' };
-    case 'saved':
-      return { label: 'Saved to your projects', tone: 'saved' };
-    case 'error':
-      return { label: 'Not saved to your projects', tone: 'error' };
-    case 'signed-out':
-      return { label: 'Sign in again to save', tone: 'error' };
-    default:
-      return { label: local === 'saving' ? 'Saving' : local === 'error' ? 'Not saved' : 'Saved in this browser', tone: local };
-  }
 }
