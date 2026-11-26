@@ -23,6 +23,9 @@ function timeAgo(time: number): string {
   return new Date(time).toLocaleDateString();
 }
 
+/** The drifting notes behind the home screen, as on the sign-in page. */
+const NOTES = ['♪', '♫', '♩', '♬', '♪', '♭', '♫', '♩'];
+
 export function Home({ onContinue, onCreate, error }: Props) {
   const [last, setLast] = useState<ProjectDoc | null | undefined>(undefined);
   const [dragging, setDragging] = useState(false);
@@ -67,6 +70,11 @@ export function Home({ onContinue, onCreate, error }: Props) {
 
   return (
     <div className="home">
+      <div className="home-notes" aria-hidden="true">
+        {Array.from({ length: 40 }, (_, index) => (
+          <span key={index}>{NOTES[index % NOTES.length]}</span>
+        ))}
+      </div>
       <header className="home-bar">
         <div className="brand">
           <span className="brand-mark"><Icon name="music" size={14} /></span>
