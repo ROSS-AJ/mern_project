@@ -71,11 +71,22 @@ and the editor links back to `/login` and `/dashboard`.
   (`/editor/?project=<id>`) save back automatically. The layout goes
   in MongoDB (`Project.pageLayout`), the PDF in `UPLOAD_DIR` on the server.
   Code: `model/cloud.ts`.
+  - Saves go out 1.5 s after the last change. The top bar says when it last
+    saved and links to the dashboard. Closing the tab sends what's waiting at
+    once and asks first if it hasn't arrived yet.
+  - Opening a project uses whichever copy was edited last, this browser's or
+    the account's (by `updatedAt`), and coming back to the tab picks up
+    changes made in another browser.
+  - The sign-in lasts an hour; the editor and dashboard refresh it
+    (`POST /api/refresh`) while they're open. If it does run out, changes
+    stay in the browser, and signing in again comes back to the project
+    (`/editor/?continue`) and saves them.
 
 API (all need `Authorization: Bearer <token>` from `/api/login`):
 
 | Route | Does |
 |---|---|
+| `POST /api/refresh` | A fresh one-hour token for one that hasn't run out yet |
 | `GET /api/projects` | The user's projects, newest first (no layouts) |
 | `POST /api/projects` | Upload a PDF or `.partwise` file (form field `file`, up to 30 MB) |
 | `GET /api/projects/:id` | One project with its layout (`pageLayout`) |

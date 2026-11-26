@@ -8,9 +8,19 @@ import type { DesignName } from './ui/index.ts';
 import { initialState, reducer } from './model/reducer.ts';
 import type { EditAction } from './model/reducer.ts';
 import { confirmDialog } from './ui/shared/ConfirmDialog.tsx';
-import { createCloudProject, fetchCloudProject, authToken, saveCloudLayout, SignedOutError } from './model/cloud.ts';
+import {
+  authToken,
+  createCloudProject,
+  fetchCloudLayout,
+  fetchCloudProject,
+  newerCopy,
+  NotInProjectsError,
+  refreshSignIn,
+  saveCloudLayout,
+  SignedOutError,
+} from './model/cloud.ts';
 import { looksLikePartwiseFile, partwiseFileName, readPartwiseFile, writePartwiseFile } from './model/partwiseFile.ts';
-import { loadLastProject, saveProject, startNewProject } from './model/storage.ts';
+import { loadLastProject, peekLastProject, saveProject, startNewProject } from './model/storage.ts';
 import type { ProjectDoc, Step } from './model/types.ts';
 import { emptyPage, uid } from './model/types.ts';
 import { analyzePage } from './pdf/analyze.ts';
@@ -46,13 +56,26 @@ export function App() {
     try {
       const saved = await loadLastProject();
       if (!saved) throw new Error('The saved project or its PDF is missing. Open the PDF again to start over.');
+      const doc = await newestVersion(saved.doc);
+      if (doc !== saved.doc) await saveProject(doc);
       const loaded = await loadPdf(saved.bytes);
       setPdfBytes(saved.bytes);
       setPdf(loaded);
-      dispatch({ type: 'load', doc: saved.doc });
+      dispatch({ type: 'load', doc });
     } catch (error) {
       setOpenError((error as Error).message);
     }
+  }, []);
+
+  // Back from signing in again (/editor/?continue): carry on where they were.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('continue')) return;
+    url.searchParams.delete('continue');
+    window.history.replaceState(null, '', url);
+    void continueProject();
+    // Runs once, for the address the page opened with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /** A PDF starts a new project; a .partwise file reopens a saved one. */
@@ -85,7 +108,10 @@ export function App() {
     (async () => {
       try {
         const { project, pdf: bytes } = await fetchCloudProject(openingCloud);
-        const saved = project.pageLayout;
+        // This browser may hold newer work on the same project (made while signed out); keep that.
+        const local = await peekLastProject().catch(() => undefined);
+        const saved =
+          local?.cloudId === project._id && newerCopy(local, project.pageLayout) === 'local' ? local : project.pageLayout;
         await openProject(
           (pageCount) => ({
             // Uploaded as a bare PDF on the dashboard: this is its first time in the editor.
@@ -110,7 +136,8 @@ export function App() {
 
   const closeProject = useCallback(() => {
     if (doc) void saveProject(doc);
-    if (doc?.cloudId) void saveCloudLayout(doc.cloudId, doc).catch(() => undefined);
+    if (doc?.cloudId && unsaved.current) void saveCloudLayout(doc.cloudId, unsaved.current).catch(() => undefined);
+    unsaved.current = null;
     dispatch({ type: 'close' });
     closePdf(pdf);
     setPdf(null);
@@ -131,26 +158,126 @@ export function App() {
     return () => clearTimeout(timer);
   }, [doc]);
 
-  // The copy in the user's projects follows a little behind the local one.
-  const [cloud, setCloud] = useState<CloudState>('local');
+  // ---------- sign-in ----------
+
+  // The site keeps the sign-in in localStorage. Follow it, so signing in again
+  // in another tab picks up saving where it stopped.
+  const [token, setToken] = useState(authToken);
+  const signedIn = token !== null;
   useEffect(() => {
-    if (!doc) return;
-    const cloudId = doc.cloudId;
-    if (!cloudId) {
+    const check = () => setToken(authToken());
+    // Refresh while the editor is open, so working for hours never signs anyone out.
+    const refresh = () => void refreshSignIn().then(check);
+    refresh();
+    const timer = setInterval(refresh, 5 * 60 * 1000);
+    const onVisible = () => document.visibilityState === 'visible' && refresh();
+    window.addEventListener('storage', check);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('storage', check);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []);
+
+  // ---------- the copy in the user's projects ----------
+
+  // It follows a little behind the local one.
+  const [cloud, setCloud] = useState<CloudState>('local');
+  const [cloudSavedAt, setCloudSavedAt] = useState<number | null>(null);
+  const [retry, setRetry] = useState(0);
+  // The layout still on its way to the server, if any (sent at once if the tab closes).
+  const unsaved = useRef<ProjectDoc | null>(null);
+
+  const saveNow = useCallback((pending: ProjectDoc, keepalive = false) => {
+    const cloudId = pending.cloudId;
+    if (!cloudId) return;
+    setCloud('saving');
+    saveCloudLayout(cloudId, pending, keepalive).then(
+      () => {
+        if (unsaved.current === pending) unsaved.current = null;
+        setCloudSavedAt(Date.now());
+        setCloud('saved');
+      },
+      (error) => {
+        if (error instanceof NotInProjectsError) {
+          // Deleted on the dashboard (or another account signed in): it's only in this browser now.
+          unsaved.current = null;
+          dispatch({ type: 'setCloudId', cloudId: undefined });
+          setCloud('local');
+        } else if (error instanceof SignedOutError) {
+          setToken(authToken());
+          setCloud('signed-out');
+        } else {
+          setCloud('error');
+          // Probably offline: try again shortly.
+          setTimeout(() => setRetry((n) => n + 1), 10_000);
+        }
+      },
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!doc?.cloudId) {
+      unsaved.current = null;
       setCloud('local');
+      setCloudSavedAt(null);
+      return;
+    }
+    unsaved.current = doc;
+    if (!token) {
+      setCloud('signed-out');
       return;
     }
     setCloud('saving');
-    const timer = setTimeout(() => {
-      saveCloudLayout(cloudId, doc).then(
-        () => setCloud('saved'),
-        (error) => setCloud(error instanceof SignedOutError ? 'signed-out' : 'error'),
-      );
-    }, 1500);
+    const timer = setTimeout(() => saveNow(doc), 1500);
     return () => clearTimeout(timer);
-  }, [doc]);
+    // `token` and `retry` are here to save again after signing in or a failed save.
+  }, [doc, token, retry, saveNow]);
 
-  const [signedIn] = useState(() => authToken() !== null);
+  // Closing the tab: send what's waiting straight away, and warn if it might not make it.
+  useEffect(() => {
+    const flush = () => {
+      if (unsaved.current && authToken()) saveNow(unsaved.current, true);
+    };
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!unsaved.current && saveState !== 'saving') return;
+      flush();
+      event.preventDefault();
+      // Older browsers need returnValue set to show the warning.
+      event.returnValue = '';
+    };
+    const onHidden = () => document.visibilityState === 'hidden' && flush();
+    window.addEventListener('beforeunload', onBeforeUnload);
+    document.addEventListener('visibilitychange', onHidden);
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      document.removeEventListener('visibilitychange', onHidden);
+    };
+  }, [saveNow, saveState]);
+
+  // Coming back to the tab: pick up changes made meanwhile in another browser,
+  // as long as nothing here is waiting to be saved.
+  const docForCheck = useRef(doc);
+  docForCheck.current = doc;
+  useEffect(() => {
+    const onVisible = async () => {
+      const current = docForCheck.current;
+      if (document.visibilityState !== 'visible' || !current?.cloudId || unsaved.current || !authToken()) return;
+      try {
+        const { pageLayout } = await fetchCloudLayout(current.cloudId);
+        const latest = docForCheck.current;
+        if (!pageLayout || latest !== current || unsaved.current || newerCopy(current, pageLayout) === 'local') return;
+        const updated = { ...pageLayout, cloudId: current.cloudId };
+        await saveProject(updated);
+        dispatch({ type: 'load', doc: updated });
+      } catch {
+        // Offline or signed out: the save note already says so.
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
   const downloadProject = useCallback(() => {
     if (!doc || !pdfBytes) return;
@@ -162,6 +289,7 @@ export function App() {
     setCloud('saving');
     try {
       const cloudId = await createCloudProject(doc, pdfBytes);
+      setCloudSavedAt(Date.now());
       dispatch({ type: 'setCloudId', cloudId });
     } catch (error) {
       setCloud('local');
@@ -267,12 +395,13 @@ export function App() {
             detection,
             redetectPage,
             cloud,
+            cloudSavedAt,
             signedIn,
             downloadProject,
             saveToAccount,
           }
         : null,
-    [doc, pdf, pdfBytes, edit, setStep, undo, redo, state.past.length, state.future.length, detection, redetectPage, cloud, signedIn, downloadProject, saveToAccount],
+    [doc, pdf, pdfBytes, edit, setStep, undo, redo, state.past.length, state.future.length, detection, redetectPage, cloud, cloudSavedAt, signedIn, downloadProject, saveToAccount],
   );
 
   // ---------- design (Edition or Classic) ----------
@@ -313,6 +442,23 @@ export function App() {
       )}
     </>
   );
+}
+
+/**
+ * The project as last saved anywhere: this browser's copy, or the one in the
+ * user's projects if that was edited later (in another browser, say).
+ */
+async function newestVersion(local: ProjectDoc): Promise<ProjectDoc> {
+  if (!local.cloudId || !authToken()) return local;
+  try {
+    const { pageLayout } = await fetchCloudLayout(local.cloudId);
+    return newerCopy(local, pageLayout) === 'saved' && pageLayout ? { ...pageLayout, cloudId: local.cloudId } : local;
+  } catch (error) {
+    // Deleted on the dashboard: carry on with it as a browser-only project.
+    if (error instanceof NotInProjectsError) return { ...local, cloudId: undefined };
+    // Offline or signed out: this browser's copy is the best there is.
+    return local;
+  }
 }
 
 function newProject(fileName: string, title: string, pageCount: number): ProjectDoc {

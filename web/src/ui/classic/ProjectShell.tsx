@@ -2,8 +2,8 @@ import type { SaveState } from '../../App.tsx';
 import type { Step } from '../../model/types.ts';
 import { allSystems } from '../../model/types.ts';
 import { AssignView } from './AssignView.tsx';
-import { saveNote, useEditor } from '../shared/context.ts';
-import { LOGIN_URL } from '../../site.ts';
+import { useEditor } from '../shared/context.ts';
+import { SaveStatus } from '../shared/SaveStatus.tsx';
 import { ExportView } from './ExportView.tsx';
 import { Icon } from '../shared/Icon.tsx';
 import { PartSetup } from './PartSetup.tsx';
@@ -16,8 +16,7 @@ const STEPS: { step: Step; label: string }[] = [
 ];
 
 export function ProjectShell({ onClose, saveState }: { onClose: () => void; saveState: SaveState }) {
-  const { doc, edit, undo, redo, canUndo, canRedo, cloud, signedIn, downloadProject, saveToAccount, detection } = useEditor();
-  const note = saveNote(saveState, cloud);
+  const { doc, edit, undo, redo, canUndo, canRedo, cloud, signedIn, downloadProject, saveToAccount } = useEditor();
   const { detectionDone, goTo } = useStepGate();
   const review = allSystems(doc).filter(({ system }) => system.status === 'review').length;
   const currentIndex = STEPS.findIndex((s) => s.step === doc.step);
@@ -36,10 +35,7 @@ export function ProjectShell({ onClose, saveState }: { onClose: () => void; save
               aria-label="Score title"
               onChange={(event) => edit({ type: 'setTitle', title: event.target.value }, 'title')}
             />
-            <span className={`save-state ${note.tone}`}>
-              {cloud === 'signed-out' ? <a href={LOGIN_URL}>{note.label}</a> : note.label}
-              {detection.running && ` · Detecting ${detection.done}/${detection.total}`}
-            </span>
+            <SaveStatus saveState={saveState} showDetection />
           </div>
         </div>
 

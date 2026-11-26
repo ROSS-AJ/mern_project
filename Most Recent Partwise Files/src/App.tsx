@@ -60,6 +60,27 @@ const players = [
   { name: 'Cello', color: '#4a9b72', checked: false },
 ]
 
+/**
+ * Swaps the sign-in for a fresh one-hour one once it has under half an hour
+ * left. Returns whether the token changed.
+ */
+async function refreshSignIn(): Promise<boolean> {
+  const token = localStorage.getItem('authToken')
+  if (!token) return false
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as { exp?: number }
+    if (typeof payload.exp === 'number' && payload.exp * 1000 - Date.now() > 30 * 60 * 1000) return false
+    const response = await fetch(`${API_BASE}/refresh`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+    if (!response.ok) return false
+    const data = (await response.json()) as { token?: string }
+    if (!data.token || localStorage.getItem('authToken') !== token) return false
+    localStorage.setItem('authToken', data.token)
+    return true
+  } catch {
+    return false
+  }
+}
+
 function signOut() {
   localStorage.removeItem('authToken')
   localStorage.removeItem('user')
@@ -285,7 +306,7 @@ function projectDetails(project: Project, formatFileSize: (bytes: number) => str
   if (players > 0) details.push(`${players} player${players === 1 ? '' : 's'}`)
   if (project.pageCount) details.push(`${project.pageCount} page${project.pageCount === 1 ? '' : 's'}`)
   details.push(formatFileSize(project.size))
-  details.push(`edited ${new Date(project.updatedAt ?? project.createdAt).toLocaleDateString()}`)
+  details.push(`saved ${new Date(project.updatedAt ?? project.createdAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`)
   return details.join(' · ')
 }
 
@@ -335,7 +356,19 @@ function DashboardScreen() {
     }
 
     loadProjects()
-  }, [token])
+    // Loads once; refreshing the sign-in below changes the token but not the projects.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Keep the sign-in fresh while the dashboard is open, so it doesn't run out
+  // under someone who's using it. Re-render afterwards to use the new token.
+  const [, setSignInVersion] = useState(0)
+  useEffect(() => {
+    const refresh = () => void refreshSignIn().then((changed) => changed && setSignInVersion((n) => n + 1))
+    refresh()
+    const timer = setInterval(refresh, 5 * 60 * 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]

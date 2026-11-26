@@ -3,15 +3,14 @@ import type { SaveState } from '../../App.tsx';
 import { allSystems } from '../../model/types.ts';
 import { confirmDialog } from '../shared/ConfirmDialog.tsx';
 import { AssignView } from './AssignView.tsx';
-import { saveNote, useEditor } from '../shared/context.ts';
-import { LOGIN_URL } from '../../site.ts';
+import { useEditor } from '../shared/context.ts';
+import { SaveStatus } from '../shared/SaveStatus.tsx';
 import { ADD_PLAYER_INPUT_ID } from './EnsemblePanel.tsx';
 import { ExportView } from './ExportView.tsx';
 import { Icon } from '../shared/Icon.tsx';
 
 export function ProjectShell({ onClose, saveState }: { onClose: () => void; saveState: SaveState }) {
   const { doc, edit, undo, redo, canUndo, canRedo, cloud, signedIn, downloadProject, saveToAccount, detection } = useEditor();
-  const note = saveNote(saveState, cloud);
   const [exporting, setExporting] = useState(false);
 
   const read = doc.pages.filter((p) => p.detected).length;
@@ -65,11 +64,7 @@ export function ProjectShell({ onClose, saveState }: { onClose: () => void; save
             aria-label="Score title"
             onChange={(event) => edit({ type: 'setTitle', title: event.target.value }, 'title')}
           />
-          {cloud === 'signed-out' ? (
-            <a className="save-state error" href={LOGIN_URL}>{note.label}</a>
-          ) : (
-            <span className={`save-state ${note.tone}`}>{note.label}</span>
-          )}
+          <SaveStatus saveState={saveState} />
         </div>
 
         <ol className="progress-line" aria-label="Progress">

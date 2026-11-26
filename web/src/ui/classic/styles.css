@@ -192,6 +192,10 @@ select.button { padding-right: 6px; }
 .title-input:focus { border-color: var(--accent); background: var(--surface); outline: none; }
 .save-state { font-size: 12.5px; color: var(--faint); white-space: nowrap; }
 .save-state.error { color: var(--danger); }
+a.save-state { color: inherit; text-decoration: none; }
+a.save-state.saved { color: var(--faint); }
+a.save-state.error { color: var(--danger); }
+a.save-state:hover { text-decoration: underline; }
 
 /* Steps are tabs: text, with a rule under the current one. */
 .steps { display: flex; align-items: stretch; }
