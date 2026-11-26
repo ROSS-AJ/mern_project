@@ -1,10 +1,8 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { ConfirmHost } from './ui/shared/ConfirmDialog.tsx';
 import { EditorContext } from './ui/shared/context.ts';
 import type { CloudState, DetectionProgress, Editor } from './ui/shared/context.ts';
-import { DesignSwitcher } from './ui/DesignSwitcher.tsx';
-import { DESIGNS, initialDesign, saveDesign, showSwitcher } from './ui/index.ts';
-import type { DesignName } from './ui/index.ts';
+import { Home, ProjectShell } from './ui/index.ts';
 import { initialState, reducer } from './model/reducer.ts';
 import type { EditAction } from './model/reducer.ts';
 import { confirmDialog } from './ui/shared/ConfirmDialog.tsx';
@@ -429,21 +427,6 @@ export function App() {
     [doc, pdf, pdfBytes, edit, setStep, undo, redo, state.past.length, state.future.length, detection, redetectPage, cloud, cloudSavedAt, signedIn, downloadProject, saveToAccount],
   );
 
-  // ---------- design (Edition or Classic) ----------
-
-  const [designName, setDesignName] = useState<DesignName>(initialDesign);
-  const design = DESIGNS[designName];
-  useLayoutEffect(() => {
-    let style = document.getElementById('partwise-design') as HTMLStyleElement | null;
-    if (!style) {
-      style = document.createElement('style');
-      style.id = 'partwise-design';
-      document.head.append(style);
-    }
-    style.textContent = design.css;
-  }, [design]);
-  const { Home, ProjectShell } = design;
-
   return (
     <>
       {editor ? (
@@ -470,15 +453,6 @@ export function App() {
         />
       )}
       <ConfirmHost />
-      {showSwitcher() && (
-        <DesignSwitcher
-          current={designName}
-          onChange={(name) => {
-            saveDesign(name);
-            setDesignName(name);
-          }}
-        />
-      )}
     </>
   );
 }
