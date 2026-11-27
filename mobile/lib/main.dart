@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'screens/login_screen.dart';
+import 'screens/start_screen.dart';
 
 void main() => runApp(const PartwiseApp());
 
@@ -28,8 +28,9 @@ class PartwiseApp extends StatelessWidget {
           border: OutlineInputBorder(),
         ),
       ),
-      // Rubric: the app always opens on the Login page.
-      home: const LoginScreen(),
+      // Opens on Login, or straight to the library if this device is
+      // still signed in (log out first to demo the login flow).
+      home: const StartScreen(),
     );
   }
 }

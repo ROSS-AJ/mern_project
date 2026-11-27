@@ -24,6 +24,15 @@ class User {
         token: (j['token'] as String?) ?? '',
       );
 
+  /// Saved on the device so the app can reopen signed in (token kept apart).
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'firstName': firstName,
+        'lastName': lastName,
+        'login': login,
+        'email': email,
+      };
+
   String get displayName => firstName.isNotEmpty ? firstName : login;
 }
 

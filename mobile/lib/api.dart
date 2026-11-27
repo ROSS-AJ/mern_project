@@ -35,8 +35,67 @@ class Api {
   static const _timeout = Duration(seconds: 15);
   static const _fileTimeout = Duration(seconds: 90);
 
+  static const _userKey = 'user';
+
   static Future<String?> readToken() => _storage.read(key: _tokenKey);
-  static Future<void> clearToken() => _storage.delete(key: _tokenKey);
+
+  /// Signs out on this device: forgets the token and the saved user.
+  static Future<void> clearToken() async {
+    await _storage.delete(key: _tokenKey);
+    await _storage.delete(key: _userKey);
+  }
+
+  /// The user saved by the last login, if their login still works.
+  ///
+  /// Returns null (and signs out) when there is no saved login, the token
+  /// has run out, or the server rejects it. If the server can't be reached,
+  /// keeps the user signed in; the library shows the error and a retry.
+  static Future<User?> restoreSession() async {
+    final token = await _storage.read(key: _tokenKey);
+    final saved = await _storage.read(key: _userKey);
+    if (token == null || saved == null) return null;
+    final exp = tokenExpiry(token);
+    if (exp != null && exp.isBefore(DateTime.now())) {
+      await clearToken();
+      return null;
+    }
+    try {
+      await http
+          .get(Uri.parse('$apiBase/projects'), headers: _auth(token))
+          .timeout(const Duration(seconds: 8))
+          .then(_decode);
+    } on ApiException catch (e) {
+      if (e.isUnauthorized) {
+        await clearToken();
+        return null;
+      }
+    } catch (_) {
+      // Offline or slow: stay signed in.
+    }
+    try {
+      return User.fromJson(
+          {...jsonDecode(saved) as Map<String, dynamic>, 'token': token});
+    } catch (_) {
+      await clearToken();
+      return null;
+    }
+  }
+
+  /// When a JWT runs out, read from its payload (no network needed).
+  static DateTime? tokenExpiry(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      final payload = jsonDecode(
+          utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))));
+      final exp = (payload as Map<String, dynamic>)['exp'];
+      return exp is num
+          ? DateTime.fromMillisecondsSinceEpoch(exp.toInt() * 1000)
+          : null;
+    } catch (_) {
+      return null;
+    }
+  }
 
   static Map<String, String> _auth(String token) =>
       {'Authorization': 'Bearer $token'};
@@ -79,6 +138,7 @@ class Api {
     final data = await _post('/login', {'login': login, 'password': password});
     final user = User.fromJson(data);
     await _storage.write(key: _tokenKey, value: user.token);
+    await _storage.write(key: _userKey, value: jsonEncode(user.toJson()));
     return user;
   }
 
