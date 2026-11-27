@@ -25,6 +25,10 @@ mongoose
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://lamp.rosslampdemo.com/login';
 // Public address of this api, used for the links in emails
 const PUBLIC_API_URL = process.env.PUBLIC_API_URL || 'https://lamp.rosslampdemo.com/mern/api';
+// The site's page for choosing a new password (the link in reset emails).
+// Defaults to /reset-password next to FRONTEND_URL's sign-in page.
+const RESET_URL = process.env.RESET_URL ||
+  new URL('reset-password', FRONTEND_URL.replace(/login\/?$/, '')).href;
 
 // If SMTP_HOST is not set the email just prints in the server log
 const transporter = process.env.SMTP_HOST
@@ -228,7 +232,9 @@ app.post('/api/forgot-password', async (req, res) => {
       await sendMail(
         user.email,
         'Reset your Partwise password',
-        `Reset your password (valid for 1 hour): ${PUBLIC_API_URL}/reset-password?token=${raw}`
+        `Someone asked to reset the password for your Partwise account (${user.login}).\n\n` +
+          `Choose a new password here (the link works for 1 hour):\n${RESET_URL}?token=${raw}\n\n` +
+          `If you didn't ask for this, you can ignore this email; your password stays the same.`
       );
     } catch (err) {
       console.error('Reset email failed:', err.message);
@@ -237,7 +243,8 @@ app.post('/api/forgot-password', async (req, res) => {
   res.status(200).json({ message: 'If that email exists, a reset link was sent.', error: '' });
 });
 
-// Small page with a new password box, front end has no reset page yet
+// Small page with a new password box. Emails now link to the site's own
+// /reset-password page; this stays so links sent before that still work.
 const RESET_PAGE = `<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Reset password</title>
@@ -277,6 +284,9 @@ app.post('/api/reset-password', async (req, res) => {
   // If field missing
   if (!token || !password) {
     return res.status(400).json({ error: 'token and password are required' });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Use at least 8 characters.' });
   }
   // Token has to match and not be expired
   const user = tokenExpired(token)

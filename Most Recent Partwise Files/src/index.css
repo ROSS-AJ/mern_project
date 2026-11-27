@@ -154,6 +154,8 @@
 .auth-page .auth-tabs button,
 .auth-page .auth-form label > span:first-child,
 .auth-page .password-label button,
+.auth-page .auth-back,
+.auth-page .auth-back button,
 .auth-page .terms-row > span,
 .auth-page .terms-row button,
 .auth-page .demo-link,
@@ -240,3 +242,6 @@
 }
 .editor-link span { color: #8b908c; font-weight: 500; }
 .editor-link:hover { border-color: #315f4e; background: #f6f8f6; }
+.auth-back { margin: 16px 0 0; text-align: center; font-size: 11px; }
+.auth-back button { padding: 0; border: 0; background: none; font-size: 11px; font-weight: 600; cursor: pointer; }
+.auth-back button:hover { text-decoration: underline; }
