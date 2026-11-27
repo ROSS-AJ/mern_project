@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
@@ -14,8 +15,17 @@ class ApiException implements Exception {
   final String message;
   ApiException(this.status, this.message);
 
+  bool get isUnauthorized => status == 401;
+
   @override
   String toString() => message;
+}
+
+/// A downloaded file: its bytes and the name the server suggested.
+class DownloadedFile {
+  final Uint8List bytes;
+  final String fileName;
+  DownloadedFile(this.bytes, this.fileName);
 }
 
 /// Thin wrapper around the Express API.
@@ -23,9 +33,16 @@ class Api {
   static const _storage = FlutterSecureStorage();
   static const _tokenKey = 'jwt';
   static const _timeout = Duration(seconds: 15);
+  static const _fileTimeout = Duration(seconds: 90);
 
   static Future<String?> readToken() => _storage.read(key: _tokenKey);
   static Future<void> clearToken() => _storage.delete(key: _tokenKey);
+
+  static Map<String, String> _auth(String token) =>
+      {'Authorization': 'Bearer $token'};
+
+  static Map<String, String> _json(String token) =>
+      {..._auth(token), 'Content-Type': 'application/json'};
 
   static Future<Map<String, dynamic>> _post(
       String path, Map<String, dynamic> body,
@@ -49,11 +66,13 @@ class Api {
     }
     if (res.statusCode >= 400) {
       final msg = (data['error'] as String?)?.trim();
-      throw ApiException(
-          res.statusCode, (msg == null || msg.isEmpty) ? 'Request failed (${res.statusCode})' : msg);
+      throw ApiException(res.statusCode,
+          (msg == null || msg.isEmpty) ? 'Request failed (${res.statusCode})' : msg);
     }
     return data;
   }
+
+  // ---- Auth ---------------------------------------------------------------
 
   /// POST /api/login -> user + JWT. Saves the token to secure storage.
   static Future<User> login(String login, String password) async {
@@ -77,7 +96,7 @@ class Api {
       'login': login,
       'email': email,
       'password': password,
-    }, timeout: const Duration(seconds: 60)); // server may be slow sending the verify email
+    }, timeout: const Duration(seconds: 60)); // server waits on the verify email
     return (data['message'] as String?) ?? 'Account created.';
   }
 
@@ -92,22 +111,111 @@ class Api {
         'If that email has an account, a reset link was sent.';
   }
 
-  /// GET /api/projects. Returns null if the server doesn't have this
-  /// endpoint yet, so the UI can fall back to sample data.
-  static Future<List<Project>?> listProjects(String token) async {
-    try {
-      final res = await http.get(Uri.parse('$apiBase/projects'), headers: {
-        'Authorization': 'Bearer $token',
-      }).timeout(_timeout);
-      if (res.statusCode == 404) return null;
-      final body = jsonDecode(res.body);
-      if (res.statusCode >= 400) return null;
-      final list = body is List ? body : (body['projects'] as List? ?? []);
-      return list
-          .map((e) => Project.fromJson(e as Map<String, dynamic>))
-          .toList();
-    } catch (_) {
-      return null;
+  // ---- Projects -----------------------------------------------------------
+
+  /// GET /api/projects -> the signed-in user's projects, newest first.
+  static Future<List<Project>> listProjects(String token) async {
+    final res = await http
+        .get(Uri.parse('$apiBase/projects'), headers: _auth(token))
+        .timeout(_timeout);
+    final data = _decode(res);
+    final list = (data['projects'] as List?) ?? const [];
+    return list
+        .map((e) => Project.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// GET /api/projects/:id/file (the original PDF) or
+  /// GET /api/projects/:id/export (a .partwise file: layout + PDF).
+  static Future<DownloadedFile> downloadPdf(String token, Project p) =>
+      _download(token, '/projects/${p.id}/file', '${_safe(p.title)}.pdf');
+
+  static Future<DownloadedFile> downloadPartwise(String token, Project p) =>
+      _download(
+          token, '/projects/${p.id}/export', '${_safe(p.title)}.partwise');
+
+  static Future<DownloadedFile> _download(
+      String token, String path, String fallbackName) async {
+    final res = await http
+        .get(Uri.parse('$apiBase$path'), headers: _auth(token))
+        .timeout(_fileTimeout);
+    if (res.statusCode >= 400) _decode(res); // throws ApiException
+    final name = _fileNameFrom(res.headers['content-disposition']) ?? fallbackName;
+    return DownloadedFile(res.bodyBytes, name);
+  }
+
+  /// POST /api/projects (multipart "file": a PDF or .partwise file).
+  static Future<Project> uploadProject(
+      String token, String filePath, String fileName) async {
+    final req = http.MultipartRequest('POST', Uri.parse('$apiBase/projects'))
+      ..headers.addAll(_auth(token))
+      ..files.add(await http.MultipartFile.fromPath('file', filePath,
+          filename: fileName));
+    final streamed = await req.send().timeout(_fileTimeout);
+    final res = await http.Response.fromStream(streamed);
+    final data = _decode(res);
+    return Project.fromJson(data['project'] as Map<String, dynamic>);
+  }
+
+  /// Renames a project.
+  ///
+  /// Tries PATCH /api/projects/:id { title } first. If the server doesn't
+  /// have that route yet, falls back to loading the editor layout, changing
+  /// its title and saving it with PUT (only works once the project has been
+  /// opened in the web editor).
+  static Future<Project> renameProject(
+      String token, Project p, String newTitle) async {
+    final patch = await http
+        .patch(Uri.parse('$apiBase/projects/${p.id}'),
+            headers: _json(token), body: jsonEncode({'title': newTitle}))
+        .timeout(_timeout);
+    if (patch.statusCode != 404 || !_isMissingRoute(patch)) {
+      final data = _decode(patch);
+      return Project.fromJson(data['project'] as Map<String, dynamic>);
     }
+
+    // Fallback: PUT the layout with a new title.
+    final getRes = await http
+        .get(Uri.parse('$apiBase/projects/${p.id}'), headers: _auth(token))
+        .timeout(_timeout);
+    final full = _decode(getRes)['project'] as Map<String, dynamic>;
+    final layout = full['pageLayout'];
+    if (layout is! Map<String, dynamic>) {
+      throw ApiException(409,
+          'Open this project once in the Partwise website before renaming it on mobile.');
+    }
+    layout['title'] = newTitle;
+    final put = await http
+        .put(Uri.parse('$apiBase/projects/${p.id}'),
+            headers: _json(token), body: jsonEncode({'layout': layout}))
+        .timeout(_timeout);
+    final data = _decode(put);
+    return Project.fromJson(data['project'] as Map<String, dynamic>);
+  }
+
+  /// DELETE /api/projects/:id
+  static Future<void> deleteProject(String token, Project p) async {
+    final res = await http
+        .delete(Uri.parse('$apiBase/projects/${p.id}'), headers: _auth(token))
+        .timeout(_timeout);
+    _decode(res);
+  }
+
+  // ---- Helpers ------------------------------------------------------------
+
+  /// Express answers an unknown route with an HTML "Cannot PATCH ..." page,
+  /// while a real 404 from our routes is JSON ({ error }).
+  static bool _isMissingRoute(http.Response res) =>
+      res.body.contains('Cannot PATCH');
+
+  static String? _fileNameFrom(String? disposition) {
+    if (disposition == null) return null;
+    final m = RegExp(r'filename="?([^";]+)"?').firstMatch(disposition);
+    return m?.group(1);
+  }
+
+  static String _safe(String s) {
+    final cleaned = s.replaceAll(RegExp(r'[^\w\- ]+'), '').trim();
+    return cleaned.isEmpty ? 'score' : cleaned;
   }
 }

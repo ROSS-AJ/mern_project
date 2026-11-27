@@ -1,8 +1,11 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../api.dart';
 import '../models.dart';
+import '../session.dart';
 import 'login_screen.dart';
+import 'project_screen.dart';
 
 enum SortBy { newest, oldest, titleAz, titleZa, mostParts }
 
@@ -16,10 +19,16 @@ extension on SortBy {
       };
 }
 
-/// Main page after login: the user's score library (read-only on mobile).
+typedef ProjectLoader = Future<List<Project>> Function(String token);
+
+/// Main page after login: the user's score library. Mobile can view,
+/// export, upload, rename and delete projects, but not edit them.
 class LibraryScreen extends StatefulWidget {
-  const LibraryScreen({super.key, required this.user});
+  const LibraryScreen({super.key, required this.user, this.loader});
   final User user;
+
+  /// Swappable for tests. Defaults to GET /api/projects.
+  final ProjectLoader? loader;
 
   @override
   State<LibraryScreen> createState() => _LibraryScreenState();
@@ -29,8 +38,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
   final _search = TextEditingController();
   List<Project> _all = [];
   bool _loading = true;
-  bool _usingSamples = false;
+  bool _uploading = false;
+  String? _error;
   SortBy _sort = SortBy.newest;
+
+  String get _token => widget.user.token;
 
   @override
   void initState() {
@@ -45,14 +57,24 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
-    final fromServer = await Api.listProjects(widget.user.token);
-    if (!mounted) return;
     setState(() {
-      _usingSamples = fromServer == null;
-      _all = fromServer ?? List.of(sampleProjects);
-      _loading = false;
+      _loading = _all.isEmpty;
+      _error = null;
     });
+    try {
+      final list = await (widget.loader ?? Api.listProjects)(_token);
+      if (!mounted) return;
+      setState(() => _all = list);
+    } catch (e) {
+      if (!mounted) return;
+      if (e is ApiException && e.isUnauthorized) {
+        await handleApiError(context, e);
+        return;
+      }
+      setState(() => _error = friendlyError(e));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   List<Project> get _visible {
@@ -68,9 +90,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
       case SortBy.oldest:
         list.sort((a, b) => a.updatedAt.compareTo(b.updatedAt));
       case SortBy.titleAz:
-        list.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        list.sort(
+            (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
       case SortBy.titleZa:
-        list.sort((a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()));
+        list.sort(
+            (a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()));
       case SortBy.mostParts:
         list.sort((a, b) => b.partNames.length.compareTo(a.partNames.length));
     }
@@ -86,13 +110,42 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  void _openProject(Project p) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (ctx) => _ProjectSheet(project: p),
+  Future<void> _upload() async {
+    final picked = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'partwise'],
     );
+    final file = picked?.files.single;
+    if (file == null || file.path == null) return;
+    setState(() => _uploading = true);
+    try {
+      final project = await Api.uploadProject(_token, file.path!, file.name);
+      if (!mounted) return;
+      setState(() => _all = [project, ..._all]);
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Uploaded "${project.title}"')));
+    } catch (e) {
+      if (mounted) await handleApiError(context, e);
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  Future<void> _open(Project p) async {
+    final result = await Navigator.of(context).push<ProjectResult>(
+      MaterialPageRoute(
+          builder: (_) => ProjectScreen(project: p, token: _token)),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      if (result.deleted) {
+        _all.removeWhere((x) => x.id == p.id);
+      } else if (result.updated != null) {
+        _all = [
+          for (final x in _all) x.id == p.id ? result.updated! : x,
+        ];
+      }
+    });
   }
 
   @override
@@ -125,6 +178,16 @@ class _LibraryScreenState extends State<LibraryScreen> {
           const SizedBox(width: 8),
         ],
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _uploading ? null : _upload,
+        icon: _uploading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2))
+            : const Icon(Icons.upload_file),
+        label: Text(_uploading ? 'Uploading…' : 'Upload'),
+      ),
       body: RefreshIndicator(
         onRefresh: _load,
         child: CustomScrollView(
@@ -136,20 +199,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 Text('Welcome, ${widget.user.displayName}!',
                     style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 4),
-                Text('Browse your scores. Editing is done on the website.',
+                Text(
+                    'View, export and manage your scores. Editing is done on the website.',
                     style: TextStyle(color: scheme.onSurfaceVariant)),
-                if (_usingSamples) ...[
-                  const SizedBox(height: 12),
-                  Card(
-                    color: scheme.secondaryContainer,
-                    child: const ListTile(
-                      leading: Icon(Icons.info_outline),
-                      title: Text('Showing sample projects'),
-                      subtitle: Text(
-                          'Library sync with your account is coming soon.'),
-                    ),
-                  ),
-                ],
                 const SizedBox(height: 12),
                 TextField(
                   controller: _search,
@@ -161,8 +213,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         ? null
                         : IconButton(
                             icon: const Icon(Icons.clear),
-                            onPressed: () =>
-                                setState(() => _search.clear()),
+                            onPressed: () => setState(() => _search.clear()),
                           ),
                   ),
                 ),
@@ -194,27 +245,36 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 hasScrollBody: false,
                 child: Center(child: CircularProgressIndicator()),
               )
+            else if (_error != null && _all.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _Message(
+                  icon: Icons.cloud_off,
+                  text: _error!,
+                  action: FilledButton.tonal(
+                      onPressed: _load, child: const Text('Try again')),
+                ),
+              )
             else if (items.isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,
-                child: Center(
-                  child: Text(
-                    _all.isEmpty
-                        ? 'No projects yet. Create one on the website.'
-                        : 'No projects match "${_search.text}".',
-                    style: TextStyle(color: scheme.onSurfaceVariant),
-                  ),
+                child: _Message(
+                  icon: Icons.library_music_outlined,
+                  text: _all.isEmpty
+                      ? 'No projects yet.\nTap Upload to add a PDF or .partwise file.'
+                      : 'No projects match "${_search.text}".',
                 ),
               )
             else
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                // Bottom padding leaves room for the Upload button.
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
                 sliver: SliverList.separated(
                   itemCount: items.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (_, i) => _ProjectCard(
                     project: items[i],
-                    onTap: () => _openProject(items[i]),
+                    onTap: () => _open(items[i]),
                   ),
                 ),
               ),
@@ -225,12 +285,30 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 }
 
-String _fmtDate(DateTime d) {
-  const m = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-  ];
-  return '${m[d.month - 1]} ${d.day}, ${d.year}';
+class _Message extends StatelessWidget {
+  const _Message({required this.icon, required this.text, this.action});
+  final IconData icon;
+  final String text;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 48, color: scheme.onSurfaceVariant),
+          const SizedBox(height: 12),
+          Text(text,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: scheme.onSurfaceVariant)),
+          if (action != null) ...[const SizedBox(height: 16), action!],
+        ],
+      ),
+    );
+  }
 }
 
 class _ProjectCard extends StatelessWidget {
@@ -241,6 +319,13 @@ class _ProjectCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final parts = project.partNames.length;
+    final details = [
+      if (parts > 0) '$parts part${parts == 1 ? '' : 's'}',
+      if (project.pageCount > 0)
+        '${project.pageCount} page${project.pageCount == 1 ? '' : 's'}',
+      if (parts == 0 && project.pageCount == 0) 'Not set up yet',
+    ].join(' · ');
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -256,7 +341,8 @@ class _ProjectCard extends StatelessWidget {
                   color: scheme.primaryContainer,
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Icon(Icons.queue_music, color: scheme.onPrimaryContainer),
+                child:
+                    Icon(Icons.queue_music, color: scheme.onPrimaryContainer),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -268,12 +354,9 @@ class _ProjectCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 2),
-                    Text(
-                      '${project.partNames.length} parts · '
-                      '${project.pageCount} page${project.pageCount == 1 ? '' : 's'}',
-                      style: TextStyle(color: scheme.onSurfaceVariant),
-                    ),
-                    Text('Updated ${_fmtDate(project.updatedAt)}',
+                    Text(details,
+                        style: TextStyle(color: scheme.onSurfaceVariant)),
+                    Text('Updated ${fmtDate(project.updatedAt)}',
                         style: Theme.of(context)
                             .textTheme
                             .bodySmall
@@ -284,52 +367,6 @@ class _ProjectCard extends StatelessWidget {
               const Icon(Icons.chevron_right),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ProjectSheet extends StatelessWidget {
-  const _ProjectSheet({required this.project});
-  final Project project;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(project.title,
-                style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 4),
-            Text(
-                '${project.pageCount} pages · updated ${_fmtDate(project.updatedAt)}',
-                style: TextStyle(color: scheme.onSurfaceVariant)),
-            const SizedBox(height: 20),
-            Text('Parts (${project.partNames.length})',
-                style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: project.partNames
-                  .map((n) => Chip(
-                        avatar: const Icon(Icons.music_note, size: 18),
-                        label: Text(n),
-                      ))
-                  .toList(),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Open this project on the Partwise website to edit or export parts.',
-              style: TextStyle(color: scheme.onSurfaceVariant),
-            ),
-          ],
         ),
       ),
     );

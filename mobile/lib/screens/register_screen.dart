@@ -55,7 +55,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         builder: (ctx) => AlertDialog(
           icon: const Icon(Icons.mark_email_read_outlined, size: 40),
           title: const Text('Account created'),
-          content: Text('$msg\n\nYou can now log in as ${_login.text.trim()}.'),
+          content: Text(
+              '$msg\n\nWe sent a verification link to ${_email.text.trim()}. '
+              'Open it, then log in as ${_login.text.trim()}.'),
           actions: [
             FilledButton(
               onPressed: () => Navigator.pop(ctx),
