@@ -58,8 +58,13 @@ export function ProjectShell({ onClose, backLabel, saveState }: { onClose: () =>
 
         <div className="topbar-right">
           {signedIn && cloud === 'local' && (
-            <button className="button" onClick={() => void saveToAccount()} title="Keep this project in your account, to open it from your dashboard anywhere">
-              <Icon name="upload" /> Save to my projects
+            <button
+              className="button"
+              onClick={() => void saveToAccount()}
+              aria-label="Save to my projects"
+              title="Keep this project in your account, to open it from your dashboard anywhere"
+            >
+              <Icon name="upload" /> <span className="button-label">Save to my projects</span>
             </button>
           )}
           <button
