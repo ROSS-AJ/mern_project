@@ -84,8 +84,18 @@ function signOut() {
   localStorage.removeItem('user')
 }
 
-// /login and /register. ?next= is where to go after signing in (default: the dashboard).
-function AuthScreen({ mode }: { mode: 'signin' | 'register' }) {
+// /login, /register, /forgot-password and /reset-password?token=.
+// ?next= is where to go after signing in (default: the dashboard).
+type AuthMode = 'signin' | 'register' | 'forgot' | 'reset'
+const AUTH_PATHS: Record<AuthMode, string> = { signin: '/login', register: '/register', forgot: '/forgot-password', reset: '/reset-password' }
+const AUTH_TEXT: Record<AuthMode, { heading: string; intro: string; submit: string; busy: string }> = {
+  signin: { heading: 'Sign in to Partwise', intro: 'Continue working on your scores', submit: 'Sign in', busy: 'Signing in...' },
+  register: { heading: 'Create your account', intro: 'Sign up to keep your parts whenever you need them', submit: 'Create account', busy: 'Creating account...' },
+  forgot: { heading: 'Reset your password', intro: "Enter your account's email address and we'll send you a link to choose a new password.", submit: 'Send reset link', busy: 'Sending link...' },
+  reset: { heading: 'Choose a new password', intro: 'Pick a new password for your Partwise account.', submit: 'Update password', busy: 'Saving...' },
+}
+
+function AuthScreen({ mode }: { mode: AuthMode }) {
   const params = new URLSearchParams(window.location.search)
   const next = safeNext(params.get('next'), '/dashboard')
   const nextQuery = params.get('next') ? `?next=${encodeURIComponent(next)}` : ''
@@ -95,6 +105,9 @@ function AuthScreen({ mode }: { mode: 'signin' | 'register' }) {
   const [login, setLogin] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  // From the link in the reset email (server.js /api/forgot-password)
+  const resetToken = params.get('token') || ''
   // Arriving from the link in the verification email (server.js /api/verify)
   const [authError, setAuthError] = useState(() =>
     params.get('verified') === '0' ? 'That verification link is invalid or has expired. Sign in to get a new one.' : '',
@@ -103,10 +116,38 @@ function AuthScreen({ mode }: { mode: 'signin' | 'register' }) {
     params.get('verified') === '1' ? 'Your email is verified. You can sign in now.' : '',
   )
 
-  function switchMode(to: 'signin' | 'register') {
+  function switchMode(to: AuthMode) {
     setAuthError('')
     setAuthMessage('')
-    navigate(`${to === 'signin' ? '/login' : '/register'}${nextQuery}`, { replace: true })
+    navigate(`${AUTH_PATHS[to]}${nextQuery}`, { replace: true })
+  }
+
+  // /forgot-password emails a reset link; /reset-password saves the new password.
+  // Errors are thrown so handleAuth shows them like any other.
+  async function handlePasswordReset() {
+    if (mode === 'reset') {
+      if (!resetToken) throw new Error('This reset link is incomplete. Request a new one below.')
+      if (password.length < 8) throw new Error('Use at least 8 characters.')
+      if (password !== confirmPassword) throw new Error("The two passwords don't match.")
+    }
+    const response = await fetch(`${API_BASE}${mode === 'forgot' ? '/forgot-password' : '/reset-password'}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mode === 'forgot' ? { email } : { token: resetToken, password }),
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new Error(data.error || 'Something went wrong.')
+    }
+    if (mode === 'forgot') {
+      // The server answers the same whether or not the email has an account
+      setAuthMessage('If an account uses that email, a reset link is on its way. It works for 1 hour; check your spam folder too.')
+    } else {
+      setPassword('')
+      setConfirmPassword('')
+      navigate('/login', { replace: true })
+      setAuthMessage('Your password was updated. Sign in with your new password.')
+    }
   }
   const [isLoading, setIsLoading] = useState(false)
   
@@ -117,6 +158,11 @@ function AuthScreen({ mode }: { mode: 'signin' | 'register' }) {
     setIsLoading(true)
 
     try {
+      if (mode === 'forgot' || mode === 'reset') {
+        await handlePasswordReset()
+        return
+      }
+
       const endpoint = mode === 'register' ? '/register' : '/login'
 
       const body = mode === 'register'
@@ -211,14 +257,16 @@ function AuthScreen({ mode }: { mode: 'signin' | 'register' }) {
 
         <div className="auth-card">
           <div className="auth-intro">
-            <h1>{mode === 'signin' ? 'Sign in to Partwise' : 'Create your account'}</h1>
-            <p>{mode === 'signin' ? 'Continue working on your scores' : 'Sign up to keep your parts whenever you need them'}</p>
+            <h1>{AUTH_TEXT[mode].heading}</h1>
+            <p>{AUTH_TEXT[mode].intro}</p>
           </div>
 
-          <div className="auth-tabs" role="tablist" aria-label="Account access">
-            <button className={mode === 'signin' ? 'active' : ''} onClick={() => switchMode('signin')} role="tab" aria-selected={mode === 'signin'}>Sign in</button>
-            <button className={mode === 'register' ? 'active' : ''} onClick={() => switchMode('register')} role="tab" aria-selected={mode === 'register'}>Register</button>
-          </div>
+          {(mode === 'signin' || mode === 'register') && (
+            <div className="auth-tabs" role="tablist" aria-label="Account access">
+              <button className={mode === 'signin' ? 'active' : ''} onClick={() => switchMode('signin')} role="tab" aria-selected={mode === 'signin'}>Sign in</button>
+              <button className={mode === 'register' ? 'active' : ''} onClick={() => switchMode('register')} role="tab" aria-selected={mode === 'register'}>Register</button>
+            </div>
+          )}
 
           <form className="auth-form" onSubmit={handleAuth}>
             {mode === 'register' && (
@@ -241,19 +289,33 @@ function AuthScreen({ mode }: { mode: 'signin' | 'register' }) {
                 </label>
               </>
             )}
+            {mode === 'forgot' && (
+              <label>
+                <span>Email address</span>
+                <input type="email" placeholder="you@example.com" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoFocus/>
+              </label>
+            )}
             {mode === 'signin' && (
               <label>
                 <span>Username</span>
                 <input type="text" placeholder="Enter your username" autoComplete="username" value={login} onChange={(event) => setLogin(event.target.value)} required/>
               </label>
             )}
-            <label>
-              <span className="password-label">Password {mode === 'signin' && <button type="button">Forgot password?</button>}</span>
-              <span className="password-field">
-                <input type={showPassword ? 'text' : 'password'} placeholder={mode === 'register' ? 'At least 8 characters' : 'Enter your password'} autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} value={password} onChange={(event) => setPassword(event.target.value)} required/>
-                <button type="button" onClick={() => setShowPassword(!showPassword)}>{showPassword ? 'Hide' : 'Show'}</button>
-              </span>
-            </label>
+            {mode !== 'forgot' && (
+              <label>
+                <span className="password-label">{mode === 'reset' ? 'New password' : 'Password'} {mode === 'signin' && <button type="button" onClick={() => switchMode('forgot')}>Forgot password?</button>}</span>
+                <span className="password-field">
+                  <input type={showPassword ? 'text' : 'password'} placeholder={mode === 'signin' ? 'Enter your password' : 'At least 8 characters'} autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} value={password} onChange={(event) => setPassword(event.target.value)} minLength={mode === 'reset' ? 8 : undefined} required autoFocus={mode === 'reset'}/>
+                  <button type="button" onClick={() => setShowPassword(!showPassword)}>{showPassword ? 'Hide' : 'Show'}</button>
+                </span>
+              </label>
+            )}
+            {mode === 'reset' && (
+              <label>
+                <span>Confirm new password</span>
+                <input type={showPassword ? 'text' : 'password'} placeholder="Type it again" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} minLength={8} required/>
+              </label>
+            )}
             {mode === 'register' && (
               <label className="terms-row">
                 <input type="checkbox" required/>
@@ -263,10 +325,16 @@ function AuthScreen({ mode }: { mode: 'signin' | 'register' }) {
             {authError && <p role="alert">{authError}</p>}
             {authMessage && <p role="status">{authMessage}</p>}
             <button className="auth-submit" type="submit" disabled={isLoading}>
-              {isLoading ? (mode === 'signin' ? 'Signing in...' : 'Creating account...') : (mode === 'signin' ? 'Sign in' : 'Create account')}
+              {isLoading ? AUTH_TEXT[mode].busy : AUTH_TEXT[mode].submit}
               <Icon name="chevronRight" size={17}/>
             </button>
           </form>
+          {(mode === 'forgot' || mode === 'reset') && (
+            <p className="auth-back">
+              {mode === 'reset' && <><button type="button" onClick={() => switchMode('forgot')}>Request a new link</button> · </>}
+              <button type="button" onClick={() => switchMode('signin')}>Back to sign in</button>
+            </p>
+          )}
 
           <div className="auth-divider"><span>or</span></div>
           <a className="editor-link" href={EDITOR_URL}>
@@ -857,6 +925,11 @@ export default function App() {
       }
       return <AuthScreen mode={path === '/login' ? 'signin' : 'register'} />
     }
+    // Reachable signed in or not (e.g. opening the email link in a signed-in browser)
+    case '/forgot-password':
+      return <AuthScreen mode="forgot" />
+    case '/reset-password':
+      return <AuthScreen mode="reset" />
     case '/dashboard':
       return isSignedIn() ? <DashboardScreen /> : <Redirect to="/login?next=/dashboard" />
     default:
