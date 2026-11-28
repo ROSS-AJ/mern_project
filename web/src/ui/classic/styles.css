@@ -164,7 +164,7 @@ select.button { padding-right: 6px; }
 .badge { padding: 1px 5px; border-radius: 4px; background: #ece9e0; color: var(--muted); font-size: 11px; white-space: nowrap; }
 
 .brand { display: flex; align-items: center; gap: 9px; font-size: 16px; font-weight: 700; letter-spacing: -0.4px; color: var(--accent); }
-.brand-mark { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 8px; background: var(--frame); color: #fff; }
+.brand-mark { width: 26px; height: 26px; display: block; flex: none; border-radius: 50%; }
 
 /* ---------- home ---------- */
 /* The site's look: dark frame, beige page, the content on an outlined cream card. */

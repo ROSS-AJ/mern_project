@@ -31,7 +31,6 @@
   letter-spacing: -0.4px;
   text-shadow: var(--pw-navy-shadow);
 }
-.dashboard-brand .brand-mark { background: var(--pw-frame); text-shadow: none; }
 
 .dashboard-actions { display: flex; align-items: center; gap: 10px; }
 

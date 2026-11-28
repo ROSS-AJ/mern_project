@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, type ReactNode, type FormEvent } from 'react'
 
 import { EDITOR_URL, Redirect, isSignedIn, navigate, safeNext, usePath } from './router'
+import logoUrl from './assets/partwise-logo.png'
 
 // Override with VITE_API_URL (e.g. a local server.js while developing)
 const API_BASE: string = import.meta.env.VITE_API_URL ?? 'https://lamp.rosslampdemo.com/mern/api'
@@ -16,7 +17,6 @@ type IconName =
   | 'file'
   | 'layers'
   | 'more'
-  | 'music'
   | 'plus'
   | 'search'
   | 'sparkles'
@@ -34,7 +34,6 @@ const icons: Record<IconName, ReactNode> = {
   file: <><path d="M6 2.75h8l4 4V21H6z"/><path d="M14 2.75v4h4"/></>,
   layers: <><path d="m12 3-9 5 9 5 9-5-9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 16 9 5 9-5"/></>,
   more: <><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></>,
-  music: <><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></>,
   plus: <><path d="M12 5v14"/><path d="M5 12h14"/></>,
   search: <><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></>,
   sparkles: <><path d="m12 3 1.1 3.2L16 8l-2.9 1.8L12 13l-1.1-3.2L8 8l2.9-1.8L12 3Z"/><path d="m5.5 13 .7 2.1L8 16l-1.8.9L5.5 19l-.7-2.1L3 16l1.8-.9.7-2.1Z"/><path d="m18.5 14 .5 1.4 1.5.6-1.5.6-.5 1.4-.5-1.4-1.5-.6 1.5-.6.5-1.4Z"/></>,
@@ -251,7 +250,7 @@ function AuthScreen({ mode }: { mode: AuthMode }) {
           ))}
         </div>
         <div className="auth-brand">
-          <div className="brand-mark"><Icon name="music" size={18}/></div>
+          <img className="brand-mark" src={logoUrl} alt="" />
           <span>Partwise</span>
         </div>
 
@@ -703,7 +702,7 @@ function DashboardScreen() {
     <main className="dashboard-page">
       <header className="dashboard-header">
         <div className="dashboard-brand">
-          <div className="brand-mark"><Icon name="music" size={18} /></div>
+          <img className="brand-mark" src={logoUrl} alt="" />
           <span>Partwise</span>
         </div>
 
