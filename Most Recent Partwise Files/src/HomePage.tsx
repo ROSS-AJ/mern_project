@@ -247,25 +247,32 @@ const TORN_EDGE = (() => {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
 })()
 
-/** True once the page has scrolled past the top, so the header gets its paper. */
-function useScrolled(threshold = 24) {
-  const [scrolled, setScrolled] = useState(false)
+/**
+ * The header's strip of paper: 'attached' (still part of the page, at the top),
+ * 'torn' (ripped off once the page scrolls) or 'mended' (back at the top after
+ * being torn, so it can fold away rather than just vanish).
+ */
+function usePaper(threshold = 24): 'attached' | 'torn' | 'mended' {
+  const [paper, setPaper] = useState<'attached' | 'torn' | 'mended'>('attached')
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > threshold)
+    const onScroll = () => {
+      const down = window.scrollY > threshold
+      setPaper((was) => (down ? 'torn' : was === 'attached' ? 'attached' : 'mended'))
+    }
     onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [threshold])
-  return scrolled
+  return paper
 }
 
 export function HomePage() {
   const signedIn = isSignedIn()
-  const scrolled = useScrolled()
+  const paper = usePaper()
   return (
     <div className="home">
-      <header className={`home-header ${scrolled ? 'is-scrolled' : ''}`} style={{ '--pw-torn-edge': TORN_EDGE } as CSSProperties}>
-        <span className="home-header-paper" aria-hidden="true"><span /></span>
+      <header className={`home-header is-${paper}`} style={{ '--pw-torn-edge': TORN_EDGE } as CSSProperties}>
+        <span className="home-header-paper" aria-hidden="true"><span className="home-paper-fibres" /><span className="home-paper-face" /></span>
         <PageLink to="/">
           <span className="home-brand">
             <img className="brand-mark" src={logoUrl} alt="" />
@@ -275,7 +282,9 @@ export function HomePage() {
         <nav aria-label="Main">
           <a className="home-nav-extra" href="#how">How it works</a>
           <a className="home-nav-extra" href="#about">About us</a>
-          {signedIn ? <PageLink to="/dashboard">Dashboard</PageLink> : <PageLink to="/login">Log in</PageLink>}
+          {signedIn
+            ? <PageLink to="/dashboard" className="home-header-login">Dashboard</PageLink>
+            : <PageLink to="/login" className="home-header-login">Log in</PageLink>}
           <a className="home-header-cta" href={EDITOR_URL}>Open editor</a>
         </nav>
       </header>
