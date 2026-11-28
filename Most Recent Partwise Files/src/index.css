@@ -294,14 +294,38 @@
    moving score, then the three steps with their drawings. */
 .home { min-height: 100vh; border: 8px solid var(--pw-frame); background: var(--pw-page); color: var(--pw-text); }
 .home a { color: inherit; text-decoration: none; }
-.home-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 26px 48px; }
+.home-header { position: sticky; top: 0; z-index: 20; height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 48px; }
+.home-header > :not(.home-header-paper) { position: relative; }
+/* As the page starts to scroll, the top of the page rips off behind the header.
+   The rip follows the scroll (--rip 0 → 1 and --lift, set by useRip in
+   HomePage.tsx): it runs across from left to right while the strip lifts and its
+   shadow deepens, and scrolling back up mends it. The strip is the page's own
+   colour, and its torn edge (--pw-torn-edge) shows the paper's white fibres. */
+.home-header-paper {
+  position: absolute; inset: 0 0 -12px; pointer-events: none;
+  clip-path: inset(0 calc((1 - var(--rip, 0)) * 100%) -24px 0);
+  transform: translateY(calc(var(--lift, 0) * 2px)) rotate(calc(var(--lift, 0) * .35deg));
+  transform-origin: 0 0;
+  filter: drop-shadow(0 calc(3px + var(--lift, 0) * 3px) calc(4px + var(--lift, 0) * 3px) #17191726);
+}
+.home-header-paper > span {
+  position: absolute; inset: 0;
+  -webkit-mask: linear-gradient(#000, #000) top / 100% calc(100% - 11px) no-repeat, var(--pw-torn-edge) bottom left / 240px 12px repeat-x;
+  mask: linear-gradient(#000, #000) top / 100% calc(100% - 11px) no-repeat, var(--pw-torn-edge) bottom left / 240px 12px repeat-x;
+}
+.home-paper-fibres { background: #fdfcf7; translate: .5px 2px; }
+.home-paper-face { background: var(--pw-page); }
 .home-brand { display: flex; align-items: center; gap: 10px; color: var(--pw-navy); text-shadow: var(--pw-navy-shadow); font-size: 18px; font-weight: 700; letter-spacing: -.4px; }
 .home-header nav { display: flex; align-items: center; gap: 26px; color: var(--pw-navy); font-size: 13px; font-weight: 600; }
-.home-header nav a:not(.home-header-cta):hover { text-decoration: underline; }
+.home-header nav a:not(.home-header-cta, .home-header-login):hover { text-decoration: underline; }
+.home-header-login { height: 38px; padding: 0 15px; display: inline-flex; align-items: center; border: 2px solid var(--pw-frame); border-radius: 8px; background: #faf8f1; color: var(--pw-frame) !important; }
+.home-header-login:hover { background: var(--pw-hover); }
 .home-header-cta { height: 38px; padding: 0 16px; display: inline-flex; align-items: center; border-radius: 8px; background: var(--pw-frame); color: #fff !important; }
 .home-header-cta:hover { background: var(--pw-frame-hover); }
 
-.home-hero { position: relative; isolation: isolate; overflow: hidden; min-height: calc(100vh - 16px - 90px); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 24px 60px; text-align: center; }
+/* The hero sticks under the header for the first --rip-px of scrolling, so the page seems to pause while the strip rips */
+.home-intro { --hero-h: calc(100vh - 16px - 76px); height: calc(var(--hero-h) + var(--rip-px, 0px)); }
+.home-hero { position: sticky; top: 76px; isolation: isolate; overflow: hidden; min-height: var(--hero-h); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 24px 60px; text-align: center; }
 .home-hero h1 { margin: 0; color: var(--pw-navy); text-shadow: var(--pw-navy-shadow); font-family: 'Libre Baskerville', Georgia, serif; font-size: clamp(60px, 11vw, 128px); font-weight: 400; letter-spacing: -.04em; line-height: 1; }
 .home-steps-line { margin: 22px 0 34px; color: var(--pw-navy); font-size: clamp(17px, 2.2vw, 22px); font-weight: 600; letter-spacing: .02em; }
 .home-steps-line span { margin: 0 .5em; color: var(--pw-muted); }
@@ -309,7 +333,7 @@
 .home-cta:hover { background: var(--pw-frame-hover); }
 .home-cta-note { margin: 12px 0 0; color: var(--pw-muted); font-size: 13px; }
 
-.home-steps { max-width: 1060px; margin: 0 auto; padding: 40px 48px 20px; display: grid; gap: 96px; scroll-margin-top: 20px; }
+.home-steps { max-width: 1060px; margin: 0 auto; padding: 40px 48px 20px; display: grid; gap: 96px; scroll-margin-top: 90px; }
 .home-step { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: center; gap: 64px; }
 .home-step:nth-child(even) .home-step-text { order: 2; }
 .home-step-number { width: 30px; height: 30px; display: inline-grid; place-items: center; border: 2px solid var(--pw-frame); border-radius: 50%; color: var(--pw-frame); font-size: 13px; font-weight: 700; }
@@ -321,7 +345,7 @@
 .home-slide { transition: opacity .5s ease, transform .5s ease; }
 .home-move { transform-box: view-box; transform-origin: 0 0; transition: transform 1s cubic-bezier(.65, 0, .35, 1); }
 
-.home-about { max-width: 640px; margin: 0 auto; padding: 110px 24px 90px; text-align: center; scroll-margin-top: 20px; }
+.home-about { max-width: 640px; margin: 0 auto; padding: 110px 24px 90px; text-align: center; scroll-margin-top: 90px; }
 .home-about h2 { margin: 0 0 16px; color: var(--pw-navy); font-family: 'Libre Baskerville', Georgia, serif; font-size: 36px; font-weight: 400; letter-spacing: -1px; }
 .home-about p { margin: 0 0 30px; color: #4d544e; font-size: 16px; line-height: 1.7; }
 
@@ -336,10 +360,11 @@ html { scroll-behavior: smooth; }
 }
 @media (max-width: 800px) {
   .home { border-width: 5px; }
-  .home-header { padding: 16px 16px; }
+  .home-header { height: 64px; padding: 0 16px; }
   .home-header nav { gap: 16px; }
   .home-nav-extra { display: none; }
-  .home-hero { min-height: calc(100dvh - 10px - 70px); --pw-score-clear: radial-gradient(ellipse 190px 150px at 50% 50%, transparent 45%, #000 100%); }
+  .home-intro { --hero-h: calc(100dvh - 10px - 64px); }
+  .home-hero { top: 64px; --pw-score-clear: radial-gradient(ellipse 190px 150px at 50% 50%, transparent 45%, #000 100%); }
   .home-steps { padding: 20px 16px; gap: 64px; }
   .home-step { grid-template-columns: 1fr; gap: 24px; }
   .home-step:nth-child(even) .home-step-text { order: 0; }

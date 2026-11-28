@@ -14,9 +14,10 @@ const UPDATED = '27 November 2026'
 const Mail = () => <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
 
 /** A link to another site page that stays in the app (no full reload). */
-export function PageLink({ to, children }: { to: string; children: ReactNode }) {
+export function PageLink({ to, className, children }: { to: string; className?: string; children: ReactNode }) {
   return (
     <a
+      className={className}
       href={href(to)}
       onClick={(event) => {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return

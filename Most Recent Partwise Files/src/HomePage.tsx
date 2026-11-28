@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { EDITOR_URL, isSignedIn } from './router'
 import { PageLink } from './LegalPages'
 import { ScoreBackdrop, ScoreCredits } from './ScoreBackdrop'
@@ -234,11 +234,56 @@ const Chevron = () => (
   </svg>
 )
 
+/**
+ * The bottom edge of the header's paper, torn by hand: one 240 px tile that
+ * repeats across the page (it starts and ends at the same height, so the
+ * repeats join up). Used as a CSS mask, so only its shape matters.
+ */
+const TORN_EDGE = (() => {
+  const rand = seeded(7)
+  const points: string[] = []
+  for (let x = 0; x < 240; x += 3 + rand() * 7) points.push(`${x.toFixed(1)} ${(4 + rand() * 7).toFixed(1)}`)
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 12" preserveAspectRatio="none"><path d="M0 0H240V7L${points.reverse().join('L')}L0 7Z"/></svg>`
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
+})()
+
+/** How far the page scrolls while the strip rips; the page itself holds still meanwhile. */
+const RIP_PX = 160
+
+/**
+ * Ties the header strip's rip to the scroll: over the first RIP_PX of scrolling
+ * the tear runs across (--rip goes 0 → 1) and the strip lifts in the middle of
+ * it (--lift, 0 → 1 → 0). Scrolling back up mends it. Set straight on the
+ * header, so scrolling doesn't re-render the page.
+ */
+function useRip() {
+  const ref = useRef<HTMLElement>(null)
+  useEffect(() => {
+    let frame = 0
+    const update = () => {
+      frame = 0
+      const rip = Math.min(1, Math.max(0, window.scrollY / RIP_PX))
+      ref.current?.style.setProperty('--rip', rip.toFixed(4))
+      ref.current?.style.setProperty('--lift', (4 * rip * (1 - rip)).toFixed(4))
+    }
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(update) }
+    update()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      cancelAnimationFrame(frame)
+    }
+  }, [])
+  return ref
+}
+
 export function HomePage() {
   const signedIn = isSignedIn()
+  const headerRef = useRip()
   return (
     <div className="home">
-      <header className="home-header">
+      <header ref={headerRef} className="home-header" style={{ '--pw-torn-edge': TORN_EDGE } as CSSProperties}>
+        <span className="home-header-paper" aria-hidden="true"><span className="home-paper-fibres" /><span className="home-paper-face" /></span>
         <PageLink to="/">
           <span className="home-brand">
             <img className="brand-mark" src={logoUrl} alt="" />
@@ -248,11 +293,15 @@ export function HomePage() {
         <nav aria-label="Main">
           <a className="home-nav-extra" href="#how">How it works</a>
           <a className="home-nav-extra" href="#about">About us</a>
-          {signedIn ? <PageLink to="/dashboard">Dashboard</PageLink> : <PageLink to="/login">Log in</PageLink>}
+          {signedIn
+            ? <PageLink to="/dashboard" className="home-header-login">Dashboard</PageLink>
+            : <PageLink to="/login" className="home-header-login">Log in</PageLink>}
           <a className="home-header-cta" href={EDITOR_URL}>Open editor</a>
         </nav>
       </header>
 
+      {/* The hero holds still under the header while the strip rips (RIP_PX of scrolling) */}
+      <div className="home-intro" style={{ '--rip-px': `${RIP_PX}px` } as CSSProperties}>
       <section className="home-hero">
         <ScoreBackdrop />
         <h1>Partwise</h1>
@@ -260,6 +309,7 @@ export function HomePage() {
         <a className="home-cta" href={EDITOR_URL}>Open editor <Chevron /></a>
         <p className="home-cta-note">Works in your browser, no account needed</p>
       </section>
+      </div>
 
       <div id="how" className="home-steps">
         <Step number={1} title="Label" drawing={<LabelDrawing />}>
