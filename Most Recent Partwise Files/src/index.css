@@ -296,12 +296,18 @@
 .home a { color: inherit; text-decoration: none; }
 .home-header { position: sticky; top: 0; z-index: 20; height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 48px; }
 .home-header > :not(.home-header-paper) { position: relative; }
-/* Once the page scrolls, the top of the page tears off behind the header: the
-   rip runs across from left to right, the strip lifts a little as it comes free
-   and casts a shadow, and the torn edge (--pw-torn-edge, drawn in HomePage.tsx)
-   shows the paper's white fibres. It is the page's own colour, so it reads as
-   part of the page. Back at the top it folds away again. */
-.home-header-paper { position: absolute; inset: 0 0 -12px; pointer-events: none; filter: drop-shadow(0 3px 4px #17191726); clip-path: inset(0 100% -24px 0); }
+/* As the page starts to scroll, the top of the page rips off behind the header.
+   The rip follows the scroll (--rip 0 → 1 and --lift, set by useRip in
+   HomePage.tsx): it runs across from left to right while the strip lifts and its
+   shadow deepens, and scrolling back up mends it. The strip is the page's own
+   colour, and its torn edge (--pw-torn-edge) shows the paper's white fibres. */
+.home-header-paper {
+  position: absolute; inset: 0 0 -12px; pointer-events: none;
+  clip-path: inset(0 calc((1 - var(--rip, 0)) * 100%) -24px 0);
+  transform: translateY(calc(var(--lift, 0) * 2px)) rotate(calc(var(--lift, 0) * .35deg));
+  transform-origin: 0 0;
+  filter: drop-shadow(0 calc(3px + var(--lift, 0) * 3px) calc(4px + var(--lift, 0) * 3px) #17191726);
+}
 .home-header-paper > span {
   position: absolute; inset: 0;
   -webkit-mask: linear-gradient(#000, #000) top / 100% calc(100% - 11px) no-repeat, var(--pw-torn-edge) bottom left / 240px 12px repeat-x;
@@ -309,17 +315,6 @@
 }
 .home-paper-fibres { background: #fdfcf7; translate: .5px 2px; }
 .home-paper-face { background: var(--pw-page); }
-.home-header.is-torn .home-header-paper { clip-path: inset(0 0 -24px 0); animation: pw-rip .75s cubic-bezier(.45, .05, .25, 1); transform-origin: 0 0; }
-.home-header.is-mended .home-header-paper { clip-path: inset(0 0 -24px 100%); animation: pw-mend .35s ease-in; }
-@keyframes pw-rip {
-  0%   { clip-path: inset(0 100% -24px 0); transform: none; filter: drop-shadow(0 0 0 #17191700); }
-  55%  { clip-path: inset(0 0 -24px 0); transform: translateY(2px) rotate(.35deg); filter: drop-shadow(0 6px 6px #17191733); }
-  100% { clip-path: inset(0 0 -24px 0); transform: none; filter: drop-shadow(0 3px 4px #17191726); }
-}
-@keyframes pw-mend {
-  from { clip-path: inset(0 0 -24px 0); }
-  to   { clip-path: inset(0 0 -24px 100%); }
-}
 .home-brand { display: flex; align-items: center; gap: 10px; color: var(--pw-navy); text-shadow: var(--pw-navy-shadow); font-size: 18px; font-weight: 700; letter-spacing: -.4px; }
 .home-header nav { display: flex; align-items: center; gap: 26px; color: var(--pw-navy); font-size: 13px; font-weight: 600; }
 .home-header nav a:not(.home-header-cta, .home-header-login):hover { text-decoration: underline; }
@@ -328,7 +323,9 @@
 .home-header-cta { height: 38px; padding: 0 16px; display: inline-flex; align-items: center; border-radius: 8px; background: var(--pw-frame); color: #fff !important; }
 .home-header-cta:hover { background: var(--pw-frame-hover); }
 
-.home-hero { position: relative; isolation: isolate; overflow: hidden; min-height: calc(100vh - 16px - 76px); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 24px 60px; text-align: center; }
+/* The hero sticks under the header for the first --rip-px of scrolling, so the page seems to pause while the strip rips */
+.home-intro { --hero-h: calc(100vh - 16px - 76px); height: calc(var(--hero-h) + var(--rip-px, 0px)); }
+.home-hero { position: sticky; top: 76px; isolation: isolate; overflow: hidden; min-height: var(--hero-h); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 24px 60px; text-align: center; }
 .home-hero h1 { margin: 0; color: var(--pw-navy); text-shadow: var(--pw-navy-shadow); font-family: 'Libre Baskerville', Georgia, serif; font-size: clamp(60px, 11vw, 128px); font-weight: 400; letter-spacing: -.04em; line-height: 1; }
 .home-steps-line { margin: 22px 0 34px; color: var(--pw-navy); font-size: clamp(17px, 2.2vw, 22px); font-weight: 600; letter-spacing: .02em; }
 .home-steps-line span { margin: 0 .5em; color: var(--pw-muted); }
@@ -360,14 +357,14 @@ html { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .home-fade, .home-slide, .home-move { transition: none; }
-  .home-header .home-header-paper { animation: none; }
 }
 @media (max-width: 800px) {
   .home { border-width: 5px; }
   .home-header { height: 64px; padding: 0 16px; }
   .home-header nav { gap: 16px; }
   .home-nav-extra { display: none; }
-  .home-hero { min-height: calc(100dvh - 10px - 64px); --pw-score-clear: radial-gradient(ellipse 190px 150px at 50% 50%, transparent 45%, #000 100%); }
+  .home-intro { --hero-h: calc(100dvh - 10px - 64px); }
+  .home-hero { top: 64px; --pw-score-clear: radial-gradient(ellipse 190px 150px at 50% 50%, transparent 45%, #000 100%); }
   .home-steps { padding: 20px 16px; gap: 64px; }
   .home-step { grid-template-columns: 1fr; gap: 24px; }
   .home-step:nth-child(even) .home-step-text { order: 0; }
