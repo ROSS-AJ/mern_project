@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, type ReactNode, type FormEvent } from 'rea
 
 import { EDITOR_URL, Redirect, isSignedIn, navigate, safeNext, usePath } from './router'
 import logoUrl from './assets/partwise-logo.png'
+import { ScoreBackdrop } from './ScoreBackdrop'
 
 // Override with VITE_API_URL (e.g. a local server.js while developing)
 const API_BASE: string = import.meta.env.VITE_API_URL ?? 'https://lamp.rosslampdemo.com/mern/api'
@@ -203,52 +204,7 @@ function AuthScreen({ mode }: { mode: AuthMode }) {
   return (
     <div className="auth-page">
       <section className="auth-form-side">
-        <div className="auth-notes" aria-hidden="true">
-          <span>♪</span>
-          <span>♫</span>
-          <span>♩</span>
-          <span>♬</span>
-          <span>♪</span>
-          <span>♭</span>
-          <span>♫</span>
-          <span>♩</span>
-          <span>♪</span>
-          <span>♬</span>
-          <span>♩</span>
-          <span>♫</span>
-          <span>♪</span>
-          <span>♭</span>
-          <span>♬</span>
-          <span>♪</span>
-          <span>♫</span>
-          <span>♩</span>
-          <span>♪</span>
-          <span>♬</span>
-          <span>♭</span>
-          <span>♫</span>
-          <span>♩</span>
-          <span>♪</span>
-          <span>♬</span>
-          <span>♫</span>
-          <span>♪</span>
-          <span>♩</span>
-          <span>♭</span>
-          <span>♬</span>
-          <span>♪</span>
-          <span>♫</span>
-          <span>♩</span>
-          <span>♪</span>
-          <span>♬</span>
-          <span>♭</span>
-          <span>♫</span>
-          <span>♪</span>
-          <span>♩</span>
-        </div>
-        <div className="auth-notes auth-notes-secondary" aria-hidden="true">
-          {Array.from({ length: 40 }, (_, index) => (
-            <span key={index}>{['♪', '♫', '♩', '♬', '♭'][index % 5]}</span>
-          ))}
-        </div>
+        <ScoreBackdrop />
         <div className="auth-brand">
           <img className="brand-mark" src={logoUrl} alt="" />
           <span>Partwise</span>
