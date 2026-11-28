@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { EDITOR_URL, isSignedIn } from './router'
 import { PageLink } from './LegalPages'
 import { ScoreBackdrop, ScoreCredits } from './ScoreBackdrop'
@@ -234,11 +234,38 @@ const Chevron = () => (
   </svg>
 )
 
+/**
+ * The bottom edge of the header's paper, torn by hand: one 240 px tile that
+ * repeats across the page (it starts and ends at the same height, so the
+ * repeats join up). Used as a CSS mask, so only its shape matters.
+ */
+const TORN_EDGE = (() => {
+  const rand = seeded(7)
+  const points: string[] = []
+  for (let x = 0; x < 240; x += 3 + rand() * 7) points.push(`${x.toFixed(1)} ${(4 + rand() * 7).toFixed(1)}`)
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 12" preserveAspectRatio="none"><path d="M0 0H240V7L${points.reverse().join('L')}L0 7Z"/></svg>`
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
+})()
+
+/** True once the page has scrolled past the top, so the header gets its paper. */
+function useScrolled(threshold = 24) {
+  const [scrolled, setScrolled] = useState(false)
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > threshold)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [threshold])
+  return scrolled
+}
+
 export function HomePage() {
   const signedIn = isSignedIn()
+  const scrolled = useScrolled()
   return (
     <div className="home">
-      <header className="home-header">
+      <header className={`home-header ${scrolled ? 'is-scrolled' : ''}`} style={{ '--pw-torn-edge': TORN_EDGE } as CSSProperties}>
+        <span className="home-header-paper" aria-hidden="true"><span /></span>
         <PageLink to="/">
           <span className="home-brand">
             <img className="brand-mark" src={logoUrl} alt="" />

@@ -294,14 +294,30 @@
    moving score, then the three steps with their drawings. */
 .home { min-height: 100vh; border: 8px solid var(--pw-frame); background: var(--pw-page); color: var(--pw-text); }
 .home a { color: inherit; text-decoration: none; }
-.home-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 26px 48px; }
+.home-header { position: sticky; top: 0; z-index: 20; height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 48px; }
+.home-header > :not(.home-header-paper) { position: relative; }
+/* Once the page scrolls, a strip of paper tears down from the top behind the
+   header: it unrolls downwards, settling from a slight tilt, and its bottom edge
+   is torn (--pw-torn-edge, drawn in HomePage.tsx). Scrolling back up rolls it away. */
+.home-header-paper { position: absolute; inset: 0 0 -12px; pointer-events: none; filter: drop-shadow(0 3px 5px #1719171f); }
+.home-header-paper > span {
+  position: absolute; inset: 0;
+  background-color: #faf8f1; background-image: var(--pw-card-texture); background-size: var(--pw-card-texture-size);
+  -webkit-mask: linear-gradient(#000, #000) top / 100% calc(100% - 11px) no-repeat, var(--pw-torn-edge) bottom left / 240px 12px repeat-x;
+  mask: linear-gradient(#000, #000) top / 100% calc(100% - 11px) no-repeat, var(--pw-torn-edge) bottom left / 240px 12px repeat-x;
+  clip-path: inset(0 0 100% 0);
+  transform: rotate(-.8deg) translateY(-4px);
+  transform-origin: 20% 0;
+  transition: clip-path .5s cubic-bezier(.3, .7, .2, 1), transform .6s cubic-bezier(.3, 1.6, .4, 1);
+}
+.home-header.is-scrolled .home-header-paper > span { clip-path: inset(0 0 0 0); transform: none; }
 .home-brand { display: flex; align-items: center; gap: 10px; color: var(--pw-navy); text-shadow: var(--pw-navy-shadow); font-size: 18px; font-weight: 700; letter-spacing: -.4px; }
 .home-header nav { display: flex; align-items: center; gap: 26px; color: var(--pw-navy); font-size: 13px; font-weight: 600; }
 .home-header nav a:not(.home-header-cta):hover { text-decoration: underline; }
 .home-header-cta { height: 38px; padding: 0 16px; display: inline-flex; align-items: center; border-radius: 8px; background: var(--pw-frame); color: #fff !important; }
 .home-header-cta:hover { background: var(--pw-frame-hover); }
 
-.home-hero { position: relative; isolation: isolate; overflow: hidden; min-height: calc(100vh - 16px - 90px); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 24px 60px; text-align: center; }
+.home-hero { position: relative; isolation: isolate; overflow: hidden; min-height: calc(100vh - 16px - 76px); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 24px 60px; text-align: center; }
 .home-hero h1 { margin: 0; color: var(--pw-navy); text-shadow: var(--pw-navy-shadow); font-family: 'Libre Baskerville', Georgia, serif; font-size: clamp(60px, 11vw, 128px); font-weight: 400; letter-spacing: -.04em; line-height: 1; }
 .home-steps-line { margin: 22px 0 34px; color: var(--pw-navy); font-size: clamp(17px, 2.2vw, 22px); font-weight: 600; letter-spacing: .02em; }
 .home-steps-line span { margin: 0 .5em; color: var(--pw-muted); }
@@ -309,7 +325,7 @@
 .home-cta:hover { background: var(--pw-frame-hover); }
 .home-cta-note { margin: 12px 0 0; color: var(--pw-muted); font-size: 13px; }
 
-.home-steps { max-width: 1060px; margin: 0 auto; padding: 40px 48px 20px; display: grid; gap: 96px; scroll-margin-top: 20px; }
+.home-steps { max-width: 1060px; margin: 0 auto; padding: 40px 48px 20px; display: grid; gap: 96px; scroll-margin-top: 90px; }
 .home-step { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: center; gap: 64px; }
 .home-step:nth-child(even) .home-step-text { order: 2; }
 .home-step-number { width: 30px; height: 30px; display: inline-grid; place-items: center; border: 2px solid var(--pw-frame); border-radius: 50%; color: var(--pw-frame); font-size: 13px; font-weight: 700; }
@@ -321,7 +337,7 @@
 .home-slide { transition: opacity .5s ease, transform .5s ease; }
 .home-move { transform-box: view-box; transform-origin: 0 0; transition: transform 1s cubic-bezier(.65, 0, .35, 1); }
 
-.home-about { max-width: 640px; margin: 0 auto; padding: 110px 24px 90px; text-align: center; scroll-margin-top: 20px; }
+.home-about { max-width: 640px; margin: 0 auto; padding: 110px 24px 90px; text-align: center; scroll-margin-top: 90px; }
 .home-about h2 { margin: 0 0 16px; color: var(--pw-navy); font-family: 'Libre Baskerville', Georgia, serif; font-size: 36px; font-weight: 400; letter-spacing: -1px; }
 .home-about p { margin: 0 0 30px; color: #4d544e; font-size: 16px; line-height: 1.7; }
 
@@ -332,14 +348,14 @@ html { scroll-behavior: smooth; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .home-fade, .home-slide, .home-move { transition: none; }
+  .home-fade, .home-slide, .home-move, .home-header-paper > span { transition: none; }
 }
 @media (max-width: 800px) {
   .home { border-width: 5px; }
-  .home-header { padding: 16px 16px; }
+  .home-header { height: 64px; padding: 0 16px; }
   .home-header nav { gap: 16px; }
   .home-nav-extra { display: none; }
-  .home-hero { min-height: calc(100dvh - 10px - 70px); --pw-score-clear: radial-gradient(ellipse 190px 150px at 50% 50%, transparent 45%, #000 100%); }
+  .home-hero { min-height: calc(100dvh - 10px - 64px); --pw-score-clear: radial-gradient(ellipse 190px 150px at 50% 50%, transparent 45%, #000 100%); }
   .home-steps { padding: 20px 16px; gap: 64px; }
   .home-step { grid-template-columns: 1fr; gap: 24px; }
   .home-step:nth-child(even) .home-step-text { order: 0; }
