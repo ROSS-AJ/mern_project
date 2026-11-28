@@ -15,11 +15,12 @@ export const BACKDROP = {
   flightS: 2.2,        // each dot's journey
   waveS: 0.8,          // spread of start times across the page (the shockwave)
   burstPx: 160,        // furthest a dot strays mid-flight, at 1440×900
-  tiltDeg: -1.5,
+  tiltDeg: 3,          // each score leans a random amount up to this either way...
+  tiltStepDeg: 1.2,    // ...and at least this much differently from the one before
 };
 
 type Score = { file: string; title: string; composer: string; width: number; height: number };
-type Shown = { img: HTMLImageElement; pts: Float32Array };
+type Shown = { img: HTMLImageElement; tilt: number; pts: Float32Array };
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const smooth = (v: number) => { v = clamp01(v); return v * v * (3 - 2 * v); };
@@ -61,12 +62,12 @@ export function startScoreBackdrop(canvas: HTMLCanvasElement, base: string): () 
   const url = (file: string) => `${base}score-backdrop/${file}`;
 
   /** Where the page sits: large, top-aligned, slightly tilted, cropped by the edges. */
-  function place(g: CanvasRenderingContext2D, img: HTMLImageElement) {
+  function place(g: CanvasRenderingContext2D, img: HTMLImageElement, tilt: number) {
     const narrow = W < 700;
     const w = narrow ? W * 1.35 : Math.max(W * 0.8, 760);
     const h = (w * img.naturalHeight) / img.naturalWidth;
     g.translate(W / 2, H * 0.06 + h / 2);
-    g.rotate((BACKDROP.tiltDeg * Math.PI) / 180);
+    g.rotate((tilt * Math.PI) / 180);
     g.drawImage(img, -w / 2, -h / 2, w, h);
   }
 
@@ -79,11 +80,11 @@ export function startScoreBackdrop(canvas: HTMLCanvasElement, base: string): () 
   }
 
   /** Up to BACKDROP.dots points sitting on the ink, in CSS pixels. */
-  function inkPoints(img: HTMLImageElement): Float32Array {
+  function inkPoints(img: HTMLImageElement, tilt: number): Float32Array {
     const c = document.createElement('canvas');
     c.width = W; c.height = H;
     const g = c.getContext('2d', { willReadFrequently: true })!;
-    place(g, img);
+    place(g, img, tilt);
     const data = g.getImageData(0, 0, W, H).data;
     let count = 0;
     for (let i = 3; i < data.length; i += 4) if (data[i] > 100) count++;
@@ -101,10 +102,10 @@ export function startScoreBackdrop(canvas: HTMLCanvasElement, base: string): () 
     return out.subarray(0, n);
   }
 
-  function drawStill(img: HTMLImageElement, alpha = 1) {
+  function drawStill(shown: Shown, alpha = 1) {
     ctx!.setTransform(DPR, 0, 0, DPR, 0, 0);
     ctx!.globalAlpha = alpha;
-    place(ctx!, img);
+    place(ctx!, shown.img, shown.tilt);
     ctx!.setTransform(1, 0, 0, 1, 0, 0);
     ctx!.globalAlpha = 1;
   }
@@ -118,9 +119,22 @@ export function startScoreBackdrop(canvas: HTMLCanvasElement, base: string): () 
     return pick;
   }
 
+  /** A gentle lean, never quite the same as the last score's. */
+  let lastTilt = 0;
+  function nextTilt(): number {
+    let tilt = 0;
+    for (let tries = 0; tries < 20; tries++) {
+      tilt = (Math.random() * 2 - 1) * BACKDROP.tiltDeg;
+      if (Math.abs(tilt - lastTilt) >= BACKDROP.tiltStepDeg) break;
+    }
+    lastTilt = tilt;
+    return tilt;
+  }
+
   async function prepare(score: Score): Promise<Shown> {
     const img = await loadImage(url(score.file));
-    return { img, pts: still ? new Float32Array() : inkPoints(img) };
+    const tilt = nextTilt();
+    return { img, tilt, pts: still ? new Float32Array() : inkPoints(img, tilt) };
   }
 
   /** Dots leave `from` (or fly in from a scatter when there is none) and land on `to`. */
@@ -163,9 +177,9 @@ export function startScoreBackdrop(canvas: HTMLCanvasElement, base: string): () 
       ctx!.setTransform(1, 0, 0, 1, 0, 0);
       ctx!.clearRect(0, 0, canvas.width, canvas.height);
       // The old page dissolves into dots; the new one firms up at the end.
-      if (from) drawStill(from.img, 1 - smooth(t / 0.35));
+      if (from) drawStill(from, 1 - smooth(t / 0.35));
       const inImg = smooth((t - (total - 0.6)) / 0.6);
-      if (inImg > 0) drawStill(to.img, inImg);
+      if (inImg > 0) drawStill(to, inImg);
       const dotsAlpha = smooth(t / 0.2) * (1 - smooth((t - (total - 0.3)) / 0.3));
       if (dotsAlpha > 0) {
         const path = new Path2D();
@@ -189,7 +203,7 @@ export function startScoreBackdrop(canvas: HTMLCanvasElement, base: string): () 
         // Settled: one still image until the next change, nothing redrawn per frame.
         ctx!.setTransform(1, 0, 0, 1, 0, 0);
         ctx!.clearRect(0, 0, canvas.width, canvas.height);
-        drawStill(to.img);
+        drawStill(to);
         current = to;
         queue();
         schedule(BACKDROP.holdMs);
@@ -229,8 +243,8 @@ export function startScoreBackdrop(canvas: HTMLCanvasElement, base: string): () 
       if (stopped || !current) return;
       cancelAnimationFrame(frame);
       size();
-      current = { img: current.img, pts: still ? current.pts : inkPoints(current.img) };
-      drawStill(current.img);
+      current = { ...current, pts: still ? current.pts : inkPoints(current.img, current.tilt) };
+      drawStill(current);
       queue();
       schedule(BACKDROP.holdMs);
     }, 250);
@@ -246,7 +260,7 @@ export function startScoreBackdrop(canvas: HTMLCanvasElement, base: string): () 
       const first = await prepare(nextScore());
       if (stopped) return;
       if (still) {
-        drawStill(first.img);
+        drawStill(first);
         current = first;
         return;
       }
