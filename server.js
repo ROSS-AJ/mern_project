@@ -11,7 +11,7 @@ const multer = require('multer');
 const { zipSync, unzipSync, strToU8, strFromU8 } = require('fflate');
 require('dotenv').config();
 
-const { User, Project } = require('./models');
+const { User, Project, Card } = require('./models');
 
 // --- Database -------------------------------------------------------------
 const url = process.env.MONGODB_URI || 'mongodb://localhost:27017/CardsDB';
@@ -338,6 +338,259 @@ function requireAuth(req, res, next) {
     res.status(401).json({ error: 'Authentication required' });
   }
 }
+
+// Only users with the admin role can access admin routes
+async function requireAdmin(req, res, next) {
+  try {
+    const user = await User.findById(req.userId).select('_id role');
+
+    if (!user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    next();
+  } catch (err) {
+    res.status(500).json({ error: 'Unable to verify admin access' });
+  }
+}
+
+// --- Admin routes ---------------------------------------------------------
+
+// GET all users for the admin dashboard, with optional search and pagination
+app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const search = String(req.query.search || '').trim().slice(0, 100);
+    const filter = {};
+
+    if (search) {
+      const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      filter.$or = [
+        { login: { $regex: escaped, $options: 'i' } },
+        { email: { $regex: escaped, $options: 'i' } },
+        { firstName: { $regex: escaped, $options: 'i' } },
+        { lastName: { $regex: escaped, $options: 'i' } }
+      ];
+    }
+
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 25));
+
+    const [users, total] = await Promise.all([
+      User.find(filter)
+        .select('_id firstName lastName login email role emailVerified createdAt')
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+      User.countDocuments(filter)
+    ]);
+
+    const userIds = users.map((user) => user._id);
+
+    const storageStats = userIds.length
+      ? await Project.aggregate([
+          { $match: { userId: { $in: userIds } } },
+          {
+            $group: {
+              _id: '$userId',
+              scoreCount: { $sum: 1 },
+              pdfBytes: { $sum: { $ifNull: ['$size', 0] } },
+              layoutBytes: {
+                $sum: { $bsonSize: { $ifNull: ['$pageLayout', {}] } }
+              }
+            }
+          }
+        ])
+      : [];
+
+    const statsByUser = new Map(
+      storageStats.map((stat) => [
+        String(stat._id),
+        {
+          scoreCount: stat.scoreCount,
+          pdfBytes: stat.pdfBytes,
+          layoutBytes: stat.layoutBytes,
+          storageBytes: stat.pdfBytes + stat.layoutBytes
+        }
+      ])
+    );
+
+    const usersWithStats = users.map((user) => ({
+      ...user,
+      ...(statsByUser.get(String(user._id)) || {
+        scoreCount: 0,
+        pdfBytes: 0,
+        layoutBytes: 0,
+        storageBytes: 0
+      })
+    }));
+
+    res.status(200).json({
+      users: usersWithStats,
+      total,
+      page,
+      limit,
+      error: ''
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Change a user's role (admin/user)
+app.patch('/api/admin/users/:id/role', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body || {};
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+
+    if (!['user', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Role must be user or admin' });
+    }
+
+    // Prevent admins from changing their own role
+    if (String(id) === String(req.userId)) {
+      return res.status(400).json({ error: 'You cannot change your own role' });
+    }
+
+    const user = await User.findById(id).select(
+      '_id firstName lastName login email role emailVerified createdAt'
+    );
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Prevent removing the last administrator
+    if (user.role === 'admin' && role === 'user') {
+      const adminCount = await User.countDocuments({ role: 'admin' });
+
+      if (adminCount <= 1) {
+        return res.status(409).json({ error: 'Cannot demote the last administrator' });
+      }
+    }
+
+    user.role = role;
+    await user.save();
+
+    res.status(200).json({ user, error: '' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Permanently delete a user and all data belonging to that account
+app.delete('/api/admin/users/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+
+    if (String(id) === String(req.userId)) {
+      return res.status(400).json({ error: 'You cannot delete your own account' });
+    }
+
+    const user = await User.findById(id);
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.role === 'admin') {
+      const adminCount = await User.countDocuments({ role: 'admin' });
+
+      if (adminCount <= 1) {
+        return res.status(409).json({
+          error: 'Cannot delete the last administrator'
+        });
+      }
+    }
+
+    const projects = await Project.find({ userId: user._id })
+      .select('_id pdfLocation')
+      .lean();
+
+    // Remove uploaded PDFs before deleting their database records.
+    for (const project of projects) {
+      if (project.pdfLocation) {
+        await fs.promises.rm(pdfPath(project), { force: true });
+      }
+    }
+
+    const [projectResult, cardResult] = await Promise.all([
+      Project.deleteMany({ userId: user._id }),
+      Card.deleteMany({ userId: String(user._id) })
+    ]);
+
+    await User.deleteOne({ _id: user._id });
+
+    res.status(200).json({
+      message: 'User and associated data permanently deleted',
+      deletedProjects: projectResult.deletedCount,
+      deletedCards: cardResult.deletedCount,
+      deletedFiles: projects.filter((project) => project.pdfLocation).length,
+      error: ''
+    });
+  } catch (err) {
+    console.error('Admin user deletion failed:', err);
+    res.status(500).json({ error: 'Unable to completely delete user data' });
+  }
+});
+
+// GET all projects across all accounts for admin oversight
+app.get('/api/admin/projects', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 25));
+
+    const [projects, total] = await Promise.all([
+      Project.find()
+        .select('_id userId title originalName size pageCount partNames saveFormat createdAt updatedAt')
+        .sort({ updatedAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate('userId', 'firstName lastName login email')
+        .lean(),
+      Project.countDocuments()
+    ]);
+
+    const results = projects.map((project) => ({
+      _id: project._id,
+      title: project.title,
+      originalName: project.originalName,
+      size: project.size,
+      pageCount: project.pageCount,
+      partNames: project.partNames,
+      saveFormat: project.saveFormat,
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
+      owner: project.userId
+        ? {
+            _id: project.userId._id,
+            firstName: project.userId.firstName,
+            lastName: project.userId.lastName,
+            login: project.userId.login,
+            email: project.userId.email
+          }
+        : null
+    }));
+
+    res.status(200).json({ projects: results, total, page, limit, error: '' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 // POST api refresh, swaps a sign-in that hasn't run out for a new one
 // The site and editor call it while open, so people who keep working stay signed in

@@ -1,0 +1,1 @@
+import{t as e}from"./index-Cuf_aP3w.js";async function t(t){try{let n=await e.load(t,{ignoreEncryption:!0,updateMetadata:!1});if(n.isEncrypted)return t;let r=await n.save({useObjectStreams:!0,addDefaultPage:!1,updateFieldAppearances:!1});return r.length<t.length?r:t}catch{return t}}export{t as shrinkPdf};

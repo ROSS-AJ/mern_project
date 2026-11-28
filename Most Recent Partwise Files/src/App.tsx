@@ -666,6 +666,9 @@ function DashboardScreen() {
           <a className="dashboard-editor-link" href={EDITOR_URL}>
             Open editor
           </a>
+          <a className="dashboard-editor-link" href="/admin">
+            Admin
+          </a>
           <button
             className="dashboard-logout"
             onClick={() => {
@@ -868,6 +871,272 @@ function DashboardScreen() {
   )
 }
 
+
+type AdminUser = {
+  _id: string
+  firstName?: string
+  lastName?: string
+  login: string
+  email: string
+  role: string
+  emailVerified?: boolean
+  createdAt: string
+  scoreCount: number
+  storageBytes: number
+}
+
+function formatAdminBytes(bytes: number) {
+  if (!bytes || bytes <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
+  return `${(bytes / Math.pow(1024, index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`
+}
+
+function AdminScreen() {
+  const [users, setUsers] = useState<AdminUser[]>([])
+  const [search, setSearch] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [deletingId, setDeletingId] = useState('')
+  const [roleChangingId, setRoleChangingId] = useState('')
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const token = localStorage.getItem('authToken') || ''
+
+  const currentUserId = (() => {
+    try {
+      const encoded = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+      const payload = JSON.parse(atob(encoded)) as { id?: string }
+      return String(payload.id || '')
+    } catch {
+      return ''
+    }
+  })()
+
+  async function loadUsers(query = search) {
+    setLoading(true)
+    setError('')
+    try {
+      const response = await fetch(
+        `${API_BASE}/admin/users?limit=100&search=${encodeURIComponent(query)}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(
+          response.status === 403
+            ? 'Administrator access is required to view this page.'
+            : data.error || 'Could not load users.'
+        )
+      }
+      setUsers(data.users || [])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not load users.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadUsers('')
+    // Load once when the Admin page opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function handleRole(user: AdminUser) {
+    const nextRole = user.role === 'admin' ? 'user' : 'admin'
+    const action = nextRole === 'admin' ? 'promote' : 'demote'
+
+    if (!window.confirm(
+      `Are you sure you want to ${action} ${user.login} ${nextRole === 'admin' ? 'to administrator' : 'to a regular user'}?`
+    )) return
+
+    setRoleChangingId(user._id)
+    setError('')
+    setNotice('')
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/admin/users/${encodeURIComponent(user._id)}/role`,
+        {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ role: nextRole })
+        }
+      )
+
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(data.error || 'Could not change this user\'s role.')
+      }
+
+      setUsers((current) =>
+        current.map((item) =>
+          item._id === user._id ? { ...item, role: nextRole } : item
+        )
+      )
+      setNotice(`${user.login} is now ${nextRole}.`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not change user role.')
+    } finally {
+      setRoleChangingId('')
+    }
+  }
+
+  async function handleDelete(user: AdminUser) {
+    const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.login
+
+    if (!window.confirm(
+      `PERMANENTLY DELETE ${name} (${user.login})?\n\n` +
+      'This removes the account, all saved scores, uploaded PDF files, and associated legacy card records.\n\n' +
+      'This action cannot be undone.'
+    )) return
+
+    setDeletingId(user._id)
+    setError('')
+    setNotice('')
+
+    try {
+      const response = await fetch(`${API_BASE}/admin/users/${encodeURIComponent(user._id)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || 'Could not delete this account.')
+
+      setUsers((current) => current.filter((item) => item._id !== user._id))
+      setNotice(`Permanently deleted ${name}'s account, ${data.deletedProjects ?? 0} scores, and associated files.`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not delete this account.')
+    } finally {
+      setDeletingId('')
+    }
+  }
+
+  const cellStyle = {
+    padding: '12px 10px',
+    borderBottom: '1px solid #e5e7eb',
+    textAlign: 'left' as const,
+    verticalAlign: 'middle' as const
+  }
+
+  return (
+    <main style={{ minHeight: '100vh', padding: '32px 20px', background: '#f7f8fa', color: '#202938' }}>
+      <div style={{ maxWidth: 1250, margin: '0 auto' }}>
+        <a href="/dashboard" style={{ color: '#3867b7', textDecoration: 'none' }}>← Back to dashboard</a>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap', margin: '20px 0' }}>
+          <div>
+            <h1 style={{ margin: 0 }}>User management</h1>
+            <p style={{ color: '#667085', margin: '8px 0 0' }}>Account details, saved scores, and estimated storage usage.</p>
+          </div>
+          <button type="button" onClick={() => void loadUsers()} disabled={loading}
+            style={{ padding: '10px 18px', cursor: 'pointer' }}>
+            Refresh
+          </button>
+        </div>
+
+        <form onSubmit={(event) => { event.preventDefault(); void loadUsers(search) }}
+          style={{ display: 'flex', gap: 8, marginBottom: 18, maxWidth: 520 }}>
+          <input value={search} onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search name, username, or email"
+            style={{ flex: 1, minWidth: 0, padding: 11, border: '1px solid #d0d5dd', borderRadius: 6 }} />
+          <button type="submit" disabled={loading} style={{ padding: '10px 18px', cursor: 'pointer' }}>Search</button>
+        </form>
+
+        {error && <p role="alert" style={{ color: '#b42318', background: '#feeceb', padding: 12, borderRadius: 6 }}>{error}</p>}
+        {notice && <p role="status" style={{ color: '#067647', background: '#ecfdf3', padding: 12, borderRadius: 6 }}>{notice}</p>}
+
+        {loading ? (
+          <p>Loading accounts...</p>
+        ) : users.length === 0 ? (
+          <p>No accounts found.</p>
+        ) : (
+          <div style={{ overflowX: 'auto', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+              <thead>
+                <tr style={{ background: '#f2f4f7' }}>
+                  {['User', 'Email', 'Role', 'Verified', 'Scores', 'Estimated storage', 'Created', 'Actions'].map((heading) => (
+                    <th key={heading} style={{ ...cellStyle, fontWeight: 600, whiteSpace: 'nowrap' }}>{heading}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((user) => {
+                  const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.login
+                  const isSelf = user._id === currentUserId
+                  return (
+                    <tr key={user._id}>
+                      <td style={cellStyle}>
+                        <strong>{name}</strong><br />
+                        <span style={{ color: '#667085' }}>@{user.login}</span>
+                      </td>
+                      <td style={cellStyle}>{user.email}</td>
+                      <td style={cellStyle}>{user.role}</td>
+                      <td style={cellStyle}>{user.emailVerified ? 'Yes' : 'No'}</td>
+                      <td style={cellStyle}>{user.scoreCount ?? 0}</td>
+                      <td style={cellStyle} title={`${user.storageBytes ?? 0} bytes`}>
+                        {formatAdminBytes(user.storageBytes ?? 0)}
+                      </td>
+                      <td style={{ ...cellStyle, whiteSpace: 'nowrap' }}>
+                        {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—'}
+                      </td>
+                      <td style={{ ...cellStyle, whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            disabled={isSelf || roleChangingId === user._id || deletingId === user._id}
+                            onClick={() => void handleRole(user)}
+                            title={isSelf ? 'You cannot change your own role' : ''}
+                            style={{
+                              padding: '7px 11px',
+                              color: '#3867b7',
+                              border: '1px solid #9bb6e5',
+                              borderRadius: 5,
+                              background: '#fff',
+                              cursor: isSelf || roleChangingId === user._id ? 'not-allowed' : 'pointer',
+                              opacity: isSelf ? 0.5 : 1
+                            }}>
+                            {roleChangingId === user._id
+                              ? 'Updating…'
+                              : user.role === 'admin' ? 'Demote Admin' : 'Promote Admin'}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isSelf || deletingId === user._id || roleChangingId === user._id}
+                            title={isSelf ? 'You cannot delete your own account' : 'Permanently delete this account'}
+                            onClick={() => void handleDelete(user)}
+                            style={{
+                              padding: '7px 11px',
+                              color: '#b42318',
+                              border: '1px solid #f0a5a0',
+                              borderRadius: 5,
+                              background: '#fff',
+                              cursor: isSelf ? 'not-allowed' : 'pointer',
+                              opacity: isSelf ? 0.5 : 1
+                            }}>
+                            {deletingId === user._id ? 'Deleting…' : 'Delete'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <p style={{ color: '#667085', fontSize: 12, marginTop: 14 }}>
+          Storage is an estimate based on each account's uploaded PDFs and saved editor layouts. It is not the database's physical disk allocation.
+        </p>
+      </div>
+    </main>
+  )
+}
+
 export default function App() {
   const path = usePath()
 
@@ -885,6 +1154,8 @@ export default function App() {
       return <AuthScreen mode="forgot" />
     case '/reset-password':
       return <AuthScreen mode="reset" />
+    case '/admin':
+      return isSignedIn() ? <AdminScreen /> : <Redirect to="/login?next=/admin" />
     case '/dashboard':
       return isSignedIn() ? <DashboardScreen /> : <Redirect to="/login?next=/dashboard" />
     default:
