@@ -1,7 +1,8 @@
 
 import { useState, useEffect, useRef, type ReactNode, type FormEvent } from 'react'
 
-import { EDITOR_URL, Redirect, isSignedIn, navigate, safeNext, usePath } from './router'
+import { EDITOR_URL, Redirect, href, isSignedIn, navigate, safeNext, usePath } from './router'
+import { PrivacyPage, TermsPage } from './LegalPages'
 import logoUrl from './assets/partwise-logo.png'
 import { ScoreBackdrop, ScoreCredits } from './ScoreBackdrop'
 
@@ -274,7 +275,7 @@ function AuthScreen({ mode }: { mode: AuthMode }) {
             {mode === 'register' && (
               <label className="terms-row">
                 <input type="checkbox" required/>
-                <span>I agree to the <button type="button">Terms of Service</button> and <button type="button">Privacy Policy</button>.</span>
+                <span>I agree to the <a href={href('/terms')} target="_blank" rel="noreferrer">Terms of Service</a> and <a href={href('/privacy')} target="_blank" rel="noreferrer">Privacy Policy</a>.</span>
               </label>
             )}
             {authError && <p role="alert">{authError}</p>}
@@ -298,7 +299,7 @@ function AuthScreen({ mode }: { mode: AuthMode }) {
           </a>
         </div>
 
-        <p className="auth-footer">© 2026 Partwise <span>Help</span><span>Privacy</span><ScoreCredits /></p>
+        <footer className="auth-footer">© 2026 Partwise <span>Help</span><a className="auth-footer-link" href={href('/terms')} onClick={(event) => { event.preventDefault(); navigate('/terms') }}>Terms</a><a className="auth-footer-link" href={href('/privacy')} onClick={(event) => { event.preventDefault(); navigate('/privacy') }}>Privacy</a><ScoreCredits /></footer>
       </section>
 
     </div>
@@ -1154,6 +1155,11 @@ export default function App() {
       return <AuthScreen mode="forgot" />
     case '/reset-password':
       return <AuthScreen mode="reset" />
+    // Open to everyone, signed in or not
+    case '/terms':
+      return <TermsPage />
+    case '/privacy':
+      return <PrivacyPage />
     case '/admin':
       return isSignedIn() ? <AdminScreen /> : <Redirect to="/login?next=/admin" />
     case '/dashboard':

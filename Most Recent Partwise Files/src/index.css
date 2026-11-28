@@ -128,7 +128,7 @@
 .auth-form input::placeholder { color: #a8ada8; }
 .auth-form input:focus { border-color: #343934; box-shadow: 0 0 0 3px #e7e9e7; }
 .password-label { justify-content: space-between; }
-.password-label button, .terms-row button { padding: 0; border: 0; background: none; color: #49735f; font-size: 9px; font-weight: 600; cursor: pointer; }
+.password-label button, .terms-row button, .terms-row a { padding: 0; border: 0; background: none; color: #49735f; font-size: 9px; font-weight: 600; cursor: pointer; }
 .password-field { position: relative; display: block !important; margin: 0 !important; }
 .password-field input { padding-right: 48px !important; }
 .password-field button { position: absolute; right: 11px; top: 0; height: 47px; border: 0; background: none; color: #65756b; font-size: 10px; font-weight: 600; cursor: pointer; }
@@ -170,6 +170,7 @@
 .auth-page .auth-back button,
 .auth-page .terms-row > span,
 .auth-page .terms-row button,
+.auth-page .terms-row a,
 .auth-page .demo-link,
 .auth-page .auth-footer {
   color: #14385f;
@@ -256,3 +257,29 @@
 .auth-back { margin: 16px 0 0; text-align: center; font-size: 11px; }
 .auth-back button { padding: 0; border: 0; background: none; font-size: 11px; font-weight: 600; cursor: pointer; }
 .auth-back button:hover { text-decoration: underline; }
+
+/* Terms of Service and Privacy Policy (LegalPages.tsx): the sign-in frame, with a
+   cream reading card instead of the form. */
+.legal-side { min-height: calc(100vh - 16px); display: flex; flex-direction: column; gap: 28px; padding: 30px 48px 24px; background: #efede6; }
+.legal-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.legal-top a, .legal-footer a { color: #14385f; text-decoration: none; }
+.legal-top .auth-brand { color: #14385f; text-shadow: var(--pw-navy-shadow); }
+.legal-top nav a { font-size: 13px; font-weight: 600; }
+.legal-top nav a:hover, .legal-footer a:hover { text-decoration: underline; }
+.legal-card { width: 100%; max-width: 720px; margin: 0 auto; padding: 44px 56px 40px; border: 2px solid var(--pw-frame); border-radius: 16px; background-image: var(--pw-card-texture); background-size: var(--pw-card-texture-size); box-shadow: var(--pw-card-shadow); color: #2c332e; font-size: 15px; line-height: 1.65; }
+.legal-card h1 { margin: 0; color: #14385f; font-family: 'Libre Baskerville', Georgia, serif; font-size: 34px; font-weight: 400; letter-spacing: -1px; }
+.legal-updated { margin: 6px 0 22px; color: var(--pw-muted); font-size: 13px; }
+.legal-lead { font-size: 16px; color: #232a25; }
+.legal-card h2 { margin: 30px 0 8px; color: #14385f; font-family: 'Libre Baskerville', Georgia, serif; font-size: 20px; font-weight: 400; }
+.legal-card h3 { margin: 16px 0 4px; font-size: 15px; font-weight: 700; }
+.legal-card p { margin: 0 0 12px; }
+.legal-card ul { margin: 0 0 12px; padding-left: 20px; }
+.legal-card li { margin-bottom: 6px; }
+.legal-card a { color: #14385f; }
+.legal-footer { margin: 0 auto; color: #14385f; font-size: 12px; }
+@media (max-width: 700px) {
+  .legal-side { min-height: calc(100dvh - 10px); padding: 18px 16px 18px; gap: 18px; }
+  .legal-card { padding: 28px 20px 24px; font-size: 15px; }
+  .legal-card h1 { font-size: 28px; }
+  .legal-top .auth-brand { translate: none; }
+}
