@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 
 const paths = {
-  music: <><path d="M9 18V5l10-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="16" cy="16" r="3" /></>,
   arrowLeft: <><path d="m15 18-6-6 6-6" /><path d="M9 12h10" /></>,
   chevronLeft: <path d="m15 18-6-6 6-6" />,
   chevronRight: <path d="m9 18 6-6-6-6" />,

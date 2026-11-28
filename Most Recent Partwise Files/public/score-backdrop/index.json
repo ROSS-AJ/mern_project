@@ -1,0 +1,450 @@
+[
+  {
+    "file": "air-on-the-g-string--bach.webp",
+    "title": "Air on the G String",
+    "composer": "Bach",
+    "page": 1,
+    "width": 1300,
+    "height": 1564,
+    "credit": {
+      "work": "Air from Orchestral Suite No. 3, BWV 1068",
+      "composer": "Johann Sebastian Bach",
+      "engraver": "Jeff Covey",
+      "licence": "CC BY-SA 3.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=242"
+    }
+  },
+  {
+    "file": "american-quartet--dvorak.webp",
+    "title": "American Quartet",
+    "composer": "Dvorak",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "anitras-dance--grieg.webp",
+    "title": "Anitras Dance",
+    "composer": "Grieg",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "arabesque-no-1--debussy.webp",
+    "title": "Arabesque No 1",
+    "composer": "Debussy",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "ave-maria--schubert.webp",
+    "title": "Ave Maria",
+    "composer": "Schubert",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "ballade-no-1--chopin.webp",
+    "title": "Ballade No 1",
+    "composer": "Chopin",
+    "page": 1,
+    "width": 1300,
+    "height": 1564,
+    "credit": {
+      "work": "Ballade No. 1 in G minor, Op. 23",
+      "composer": "Frédéric Chopin",
+      "engraver": "Javier Ruiz-Alma",
+      "licence": "CC BY-SA 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1959"
+    }
+  },
+  {
+    "file": "cello-suite-no-1--bach.webp",
+    "title": "Cello Suite No 1",
+    "composer": "Bach",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "clair-de-lune--debussy.webp",
+    "title": "Clair de Lune",
+    "composer": "Debussy",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "die-forelle--schubert.webp",
+    "title": "Die Forelle",
+    "composer": "Schubert",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "double-violin-concerto--bach.webp",
+    "title": "Double Violin Concerto",
+    "composer": "Bach",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "egmont-overture--beethoven.webp",
+    "title": "Egmont Overture",
+    "composer": "Beethoven",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "emperor-quartet--haydn.webp",
+    "title": "Emperor Quartet",
+    "composer": "Haydn",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "erlkonig--schubert.webp",
+    "title": "Erlkonig",
+    "composer": "Schubert",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "eroica-symphony--beethoven.webp",
+    "title": "Eroica Symphony",
+    "composer": "Beethoven",
+    "page": 1,
+    "width": 1300,
+    "height": 1564,
+    "credit": {
+      "work": "Symphony No. 3 “Eroica”, I. Allegro con brio",
+      "composer": "Ludwig van Beethoven",
+      "engraver": "Jay Anderson",
+      "licence": "CC BY-SA 3.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1655"
+    }
+  },
+  {
+    "file": "fantaisie-impromptu--chopin.webp",
+    "title": "Fantaisie-Impromptu",
+    "composer": "Chopin",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "fifths-quartet--haydn.webp",
+    "title": "Fifths Quartet",
+    "composer": "Haydn",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "fur-elise--beethoven.webp",
+    "title": "Fur Elise",
+    "composer": "Beethoven",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "gymnopedie-no-1--satie.webp",
+    "title": "Gymnopedie No 1",
+    "composer": "Satie",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "hallelujah-chorus--handel.webp",
+    "title": "Hallelujah Chorus",
+    "composer": "Handel",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "horn-trio--brahms.webp",
+    "title": "Horn Trio",
+    "composer": "Brahms",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "impromptu-op-90-no-2--schubert.webp",
+    "title": "Impromptu Op 90 No 2",
+    "composer": "Schubert",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "impromptu-op-90-no-3--schubert.webp",
+    "title": "Impromptu Op 90 No 3",
+    "composer": "Schubert",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "intermezzo-op-118-no-2--brahms.webp",
+    "title": "Intermezzo Op 118 No 2",
+    "composer": "Brahms",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "lullaby-wiegenlied--brahms.webp",
+    "title": "Lullaby Wiegenlied",
+    "composer": "Brahms",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "march-of-the-dwarfs--grieg.webp",
+    "title": "March of the Dwarfs",
+    "composer": "Grieg",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "marche-militaire-no-1--schubert.webp",
+    "title": "Marche Militaire No 1",
+    "composer": "Schubert",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "minute-waltz--chopin.webp",
+    "title": "Minute Waltz",
+    "composer": "Chopin",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "moment-musical-no-3--schubert.webp",
+    "title": "Moment Musical No 3",
+    "composer": "Schubert",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "moonlight-sonata--beethoven.webp",
+    "title": "Moonlight Sonata",
+    "composer": "Beethoven",
+    "page": 1,
+    "width": 1300,
+    "height": 1564,
+    "credit": {
+      "work": "Piano Sonata No. 14 “Moonlight”",
+      "composer": "Ludwig van Beethoven",
+      "engraver": "Stewart Holmes",
+      "licence": "CC BY-SA 2.5",
+      "licenceUrl": "https://creativecommons.org/licenses/by-sa/2.5/",
+      "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=276"
+    }
+  },
+  {
+    "file": "new-world-symphony-finale--dvorak.webp",
+    "title": "New World Symphony Finale",
+    "composer": "Dvorak",
+    "page": 1,
+    "width": 1300,
+    "height": 1564,
+    "credit": {
+      "work": "Symphony No. 9 “From the New World”, IV. Allegro con fuoco",
+      "composer": "Antonín Dvořák",
+      "engraver": "Keith OHara",
+      "licence": "CC BY-SA 3.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1793"
+    }
+  },
+  {
+    "file": "new-world-symphony-largo--dvorak.webp",
+    "title": "New World Symphony Largo",
+    "composer": "Dvorak",
+    "page": 1,
+    "width": 1300,
+    "height": 1564,
+    "credit": {
+      "work": "Symphony No. 9 “From the New World”, II. Largo",
+      "composer": "Antonín Dvořák",
+      "engraver": "Keith OHara",
+      "licence": "CC BY-SA 3.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1793"
+    }
+  },
+  {
+    "file": "nocturne-op-9-no-2--chopin.webp",
+    "title": "Nocturne Op 9 No 2",
+    "composer": "Chopin",
+    "page": 1,
+    "width": 1300,
+    "height": 1564,
+    "credit": {
+      "work": "Nocturne in E-flat major, Op. 9 No. 2",
+      "composer": "Frédéric Chopin",
+      "engraver": "Renato Biolcati Rinaldi",
+      "licence": "CC BY-SA 3.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1590"
+    }
+  },
+  {
+    "file": "piano-concerto-no-3--beethoven.webp",
+    "title": "Piano Concerto No 3",
+    "composer": "Beethoven",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "piano-sonata-in-g-hob-xvi-27--haydn.webp",
+    "title": "Piano Sonata in G Hob XVI 27",
+    "composer": "Haydn",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "prelude-op-28-no-15-raindrop--chopin.webp",
+    "title": "Prelude Op 28 No 15 Raindrop",
+    "composer": "Chopin",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "quartettsatz--schubert.webp",
+    "title": "Quartettsatz",
+    "composer": "Schubert",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "requiem-dies-irae--mozart.webp",
+    "title": "Requiem Dies Irae",
+    "composer": "Mozart",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "romantic-pieces-op-4--dvorak.webp",
+    "title": "Romantic Pieces Op 4",
+    "composer": "Dvorak",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "rondo-alla-turca--mozart.webp",
+    "title": "Rondo alla Turca",
+    "composer": "Mozart",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "string-quartet-op-18-no-4--beethoven.webp",
+    "title": "String Quartet Op 18 No 4",
+    "composer": "Beethoven",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "sunrise-quartet--haydn.webp",
+    "title": "Sunrise Quartet",
+    "composer": "Haydn",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "symphony-no-5--beethoven.webp",
+    "title": "Symphony No 5",
+    "composer": "Beethoven",
+    "page": 1,
+    "width": 1300,
+    "height": 1535
+  },
+  {
+    "file": "symphony-no-7-allegretto--beethoven.webp",
+    "title": "Symphony No 7 Allegretto",
+    "composer": "Beethoven",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "the-seasons-january--tchaikovsky.webp",
+    "title": "The Seasons January",
+    "composer": "Tchaikovsky",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "toccata-and-fugue-in-d-minor--bach.webp",
+    "title": "Toccata and Fugue in D minor",
+    "composer": "Bach",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "violin-concerto--beethoven.webp",
+    "title": "Violin Concerto",
+    "composer": "Beethoven",
+    "page": 1,
+    "width": 1300,
+    "height": 1535
+  },
+  {
+    "file": "waltz-op-39-no-15--brahms.webp",
+    "title": "Waltz Op 39 No 15",
+    "composer": "Brahms",
+    "page": 1,
+    "width": 1300,
+    "height": 1564
+  },
+  {
+    "file": "wedding-march--mendelssohn.webp",
+    "title": "Wedding March",
+    "composer": "Mendelssohn",
+    "page": 1,
+    "width": 1300,
+    "height": 1564,
+    "credit": {
+      "work": "Wedding March (A Midsummer Night’s Dream), organ transcription",
+      "composer": "Felix Mendelssohn",
+      "engraver": "Alexander Brock",
+      "licence": "CC BY-SA 4.0",
+      "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=2198"
+    }
+  }
+]

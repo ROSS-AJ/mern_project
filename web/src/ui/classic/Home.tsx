@@ -5,6 +5,7 @@ import { confirmDialog } from '../shared/ConfirmDialog.tsx';
 import { DASHBOARD_URL, LOGIN_URL } from '../../site.ts';
 import { authToken } from '../../model/cloud.ts';
 import { Icon } from '../shared/Icon.tsx';
+import logoUrl from '../../assets/partwise-logo.png';
 
 interface Props {
   onContinue: () => void;
@@ -77,7 +78,7 @@ export function Home({ onContinue, onCreate, error }: Props) {
       </div>
       <header className="home-bar">
         <div className="brand">
-          <span className="brand-mark"><Icon name="music" size={14} /></span>
+          <img className="brand-mark" src={logoUrl} alt="" />
           Partwise
         </div>
         <a className="home-link" href={authToken() ? DASHBOARD_URL : LOGIN_URL}>
