@@ -14,7 +14,7 @@ const UPDATED = '27 November 2026'
 const Mail = () => <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
 
 /** A link to another site page that stays in the app (no full reload). */
-function PageLink({ to, children }: { to: string; children: ReactNode }) {
+export function PageLink({ to, children }: { to: string; children: ReactNode }) {
   return (
     <a
       href={href(to)}
@@ -34,7 +34,7 @@ function LegalPage({ title, other, children }: { title: string; other: { to: str
     <div className="auth-page legal-page">
       <section className="legal-side">
         <header className="legal-top">
-          <PageLink to="/login">
+          <PageLink to="/">
             <span className="auth-brand">
               <img className="brand-mark" src={logoUrl} alt="" />
               <span>Partwise</span>
@@ -52,7 +52,7 @@ function LegalPage({ title, other, children }: { title: string; other: { to: str
         </article>
 
         <p className="legal-footer">
-          © 2026 Partwise · <PageLink to="/login">Back to sign in</PageLink>
+          © 2026 Partwise · <PageLink to="/">Home</PageLink>
         </p>
       </section>
     </div>

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, type ReactNode, type FormEvent } from 'rea
 import { EDITOR_URL, Redirect, href, isSignedIn, navigate, safeNext, usePath } from './router'
 import { PrivacyPage, TermsPage } from './LegalPages'
 import logoUrl from './assets/partwise-logo.png'
-import { ScoreBackdrop, ScoreCredits } from './ScoreBackdrop'
+import { HomePage } from './HomePage'
 
 // Override with VITE_API_URL (e.g. a local server.js while developing)
 const API_BASE: string = import.meta.env.VITE_API_URL ?? 'https://lamp.rosslampdemo.com/mern/api'
@@ -205,11 +205,56 @@ function AuthScreen({ mode }: { mode: AuthMode }) {
   return (
     <div className="auth-page">
       <section className="auth-form-side">
-        <ScoreBackdrop />
-        <div className="auth-brand">
+        <div className="auth-notes" aria-hidden="true">
+          <span>♪</span>
+          <span>♫</span>
+          <span>♩</span>
+          <span>♬</span>
+          <span>♪</span>
+          <span>♭</span>
+          <span>♫</span>
+          <span>♩</span>
+          <span>♪</span>
+          <span>♬</span>
+          <span>♩</span>
+          <span>♫</span>
+          <span>♪</span>
+          <span>♭</span>
+          <span>♬</span>
+          <span>♪</span>
+          <span>♫</span>
+          <span>♩</span>
+          <span>♪</span>
+          <span>♬</span>
+          <span>♭</span>
+          <span>♫</span>
+          <span>♩</span>
+          <span>♪</span>
+          <span>♬</span>
+          <span>♫</span>
+          <span>♪</span>
+          <span>♩</span>
+          <span>♭</span>
+          <span>♬</span>
+          <span>♪</span>
+          <span>♫</span>
+          <span>♩</span>
+          <span>♪</span>
+          <span>♬</span>
+          <span>♭</span>
+          <span>♫</span>
+          <span>♪</span>
+          <span>♩</span>
+        </div>
+        <div className="auth-notes auth-notes-secondary" aria-hidden="true">
+          {Array.from({ length: 40 }, (_, index) => (
+            <span key={index}>{['♪', '♫', '♩', '♬', '♭'][index % 5]}</span>
+          ))}
+        </div>
+        <a className="auth-brand" href={href('/')} onClick={(event) => { event.preventDefault(); navigate('/') }}>
           <img className="brand-mark" src={logoUrl} alt="" />
           <span>Partwise</span>
-        </div>
+        </a>
 
         <div className="auth-card">
           <div className="auth-intro">
@@ -299,7 +344,7 @@ function AuthScreen({ mode }: { mode: AuthMode }) {
           </a>
         </div>
 
-        <footer className="auth-footer">© 2026 Partwise <span>Help</span><a className="auth-footer-link" href={href('/terms')} onClick={(event) => { event.preventDefault(); navigate('/terms') }}>Terms</a><a className="auth-footer-link" href={href('/privacy')} onClick={(event) => { event.preventDefault(); navigate('/privacy') }}>Privacy</a><ScoreCredits /></footer>
+        <footer className="auth-footer">© 2026 Partwise <span>Help</span><a className="auth-footer-link" href={href('/terms')} onClick={(event) => { event.preventDefault(); navigate('/terms') }}>Terms</a><a className="auth-footer-link" href={href('/privacy')} onClick={(event) => { event.preventDefault(); navigate('/privacy') }}>Privacy</a></footer>
       </section>
 
     </div>
@@ -1164,8 +1209,10 @@ export default function App() {
       return isSignedIn() ? <AdminScreen /> : <Redirect to="/login?next=/admin" />
     case '/dashboard':
       return isSignedIn() ? <DashboardScreen /> : <Redirect to="/login?next=/dashboard" />
+    case '/':
+      return <HomePage />
     default:
-      // No home page yet: / (and anything unknown) goes to the dashboard or sign-in
-      return <Redirect to={isSignedIn() ? '/dashboard' : '/login'} />
+      // Anything unknown goes to the home page
+      return <Redirect to="/" />
   }
 }
