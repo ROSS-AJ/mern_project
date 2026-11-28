@@ -1,0 +1,67 @@
+{
+  "_about": "Creative Commons scores used for the sign-in background (scripts/build-score-backdrop.mjs). Keyed by source PDF file name. Only CC BY and CC BY-SA are allowed, and the PDF must state the same licence. Each one is credited in the sign-in page's Score credits list.",
+  "New_World_Symphony_Largo_-_Dvorak.pdf": {
+    "work": "Symphony No. 9 “From the New World”, II. Largo",
+    "composer": "Antonín Dvořák",
+    "engraver": "Keith OHara",
+    "licence": "CC BY-SA 3.0",
+    "licenceUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1793"
+  },
+  "New_World_Symphony_Finale_-_Dvorak.pdf": {
+    "work": "Symphony No. 9 “From the New World”, IV. Allegro con fuoco",
+    "composer": "Antonín Dvořák",
+    "engraver": "Keith OHara",
+    "licence": "CC BY-SA 3.0",
+    "licenceUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1793"
+  },
+  "Eroica_Symphony_-_Beethoven.pdf": {
+    "work": "Symphony No. 3 “Eroica”, I. Allegro con brio",
+    "composer": "Ludwig van Beethoven",
+    "engraver": "Jay Anderson",
+    "licence": "CC BY-SA 3.0",
+    "licenceUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1655"
+  },
+  "Moonlight_Sonata_-_Beethoven.pdf": {
+    "work": "Piano Sonata No. 14 “Moonlight”",
+    "composer": "Ludwig van Beethoven",
+    "engraver": "Stewart Holmes",
+    "licence": "CC BY-SA 2.5",
+    "licenceUrl": "https://creativecommons.org/licenses/by-sa/2.5/",
+    "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=276"
+  },
+  "Air_on_the_G_String_-_Bach.pdf": {
+    "work": "Air from Orchestral Suite No. 3, BWV 1068",
+    "composer": "Johann Sebastian Bach",
+    "engraver": "Jeff Covey",
+    "licence": "CC BY-SA 3.0",
+    "licenceUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=242"
+  },
+  "Nocturne_Op_9_No_2_-_Chopin.pdf": {
+    "work": "Nocturne in E-flat major, Op. 9 No. 2",
+    "composer": "Frédéric Chopin",
+    "engraver": "Renato Biolcati Rinaldi",
+    "licence": "CC BY-SA 3.0",
+    "licenceUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1590"
+  },
+  "Ballade_No_1_-_Chopin.pdf": {
+    "work": "Ballade No. 1 in G minor, Op. 23",
+    "composer": "Frédéric Chopin",
+    "engraver": "Javier Ruiz-Alma",
+    "licence": "CC BY-SA 4.0",
+    "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1959"
+  },
+  "Wedding_March_-_Mendelssohn.pdf": {
+    "work": "Wedding March (A Midsummer Night’s Dream), organ transcription",
+    "composer": "Felix Mendelssohn",
+    "engraver": "Alexander Brock",
+    "licence": "CC BY-SA 4.0",
+    "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "source": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=2198"
+  }
+}

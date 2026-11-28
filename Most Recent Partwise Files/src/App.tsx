@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, type ReactNode, type FormEvent } from 'rea
 
 import { EDITOR_URL, Redirect, isSignedIn, navigate, safeNext, usePath } from './router'
 import logoUrl from './assets/partwise-logo.png'
-import { ScoreBackdrop } from './ScoreBackdrop'
+import { ScoreBackdrop, ScoreCredits } from './ScoreBackdrop'
 
 // Override with VITE_API_URL (e.g. a local server.js while developing)
 const API_BASE: string = import.meta.env.VITE_API_URL ?? 'https://lamp.rosslampdemo.com/mern/api'
@@ -298,7 +298,7 @@ function AuthScreen({ mode }: { mode: AuthMode }) {
           </a>
         </div>
 
-        <p className="auth-footer">© 2026 Partwise <span>Help</span><span>Privacy</span></p>
+        <p className="auth-footer">© 2026 Partwise <span>Help</span><span>Privacy</span><ScoreCredits /></p>
       </section>
 
     </div>

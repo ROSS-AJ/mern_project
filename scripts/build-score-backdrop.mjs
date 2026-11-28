@@ -8,8 +8,10 @@
 // footer, and writes the site's public/score-backdrop/<name>.webp plus index.json.
 // File names are read as "Title_-_Composer.pdf".
 //
-// Only scores whose footer says they are in the public domain are used, so the
-// images can ship without attribution. Others are listed and skipped.
+// A score is used only if it is in the public domain (its footer says so), or it
+// is listed in scripts/score-credits.json under CC BY or CC BY-SA and its PDF
+// states that same licence. Credited scores carry their credit into index.json,
+// and the sign-in page lists them under "Score credits". Others are skipped.
 //
 // Uses the editor's pdfjs-dist and the @napi-rs/canvas it installs alongside.
 import fs from 'node:fs';
@@ -36,6 +38,17 @@ const INK = [23, 25, 23];    // --pw-frame
 fs.rmSync(outDir, { recursive: true, force: true });
 fs.mkdirSync(outDir, { recursive: true });
 
+const credits = JSON.parse(fs.readFileSync(path.join(here, 'score-credits.json'), 'utf8'));
+// "CC BY-SA 3.0" → matches "Creative Commons Attribution-ShareAlike 3.0" (or "ShareAlike 3", "by-sa/3.0").
+function statesLicence(text, licence) {
+  const m = /^CC BY(-SA)? (\d(?:\.\d)?)$/.exec(licence);
+  if (!m) return false;
+  const [, sa, version] = m;
+  const major = version.split('.')[0];
+  const words = new RegExp(`Creative Commons Attribution${sa ? '[ -]?ShareAlike' : '(?![ -]?(ShareAlike|NonCommercial|NoDerivs))'} ${major}`, 'i');
+  return words.test(text);
+}
+
 const slug = (s) => s.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_-]+/g, '-');
 const index = [];
 const skipped = [];
@@ -47,8 +60,10 @@ for (const file of fs.readdirSync(source).filter((f) => f.toLowerCase().endsWith
     Array.from({ length: Math.min(doc.numPages, 2) }, async (_, i) =>
       (await (await doc.getPage(i + 1)).getTextContent()).items.map((it) => it.str).join(' ')),
   )).join(' ');
-  if (!/public domain/i.test(text)) {
-    skipped.push(`${file} (${(text.match(/Creative Commons[^.]*/i) ?? ['licence not found'])[0].trim()})`);
+  const credit = credits[file];
+  if (!/public domain/i.test(text) && !(credit && statesLicence(text, credit.licence))) {
+    const found = (text.match(/Creative Commons[^.]*/i) ?? ['licence not found'])[0].trim();
+    skipped.push(`${file} (${found}${credit ? `; credits say ${credit.licence}` : ''})`);
     continue;
   }
 
@@ -82,10 +97,13 @@ for (const file of fs.readdirSync(source).filter((f) => f.toLowerCase().endsWith
   const name = `${slug(title)}--${slug(composer)}.webp`;
   const webp = await chosen.out.encode('webp', 82);
   fs.writeFileSync(path.join(outDir, name), webp);
-  index.push({ file: name, title, composer, page: chosen.n, width: chosen.out.width, height: chosen.out.height });
+  index.push({
+    file: name, title, composer, page: chosen.n, width: chosen.out.width, height: chosen.out.height,
+    ...(credit && !/public domain/i.test(text) ? { credit: { work: credit.work, composer: credit.composer, engraver: credit.engraver, licence: credit.licence, licenceUrl: credit.licenceUrl, source: credit.source } } : {}),
+  });
   console.log(`${name}  page ${chosen.n}  ${Math.round(webp.length / 1024)} KB`);
 }
 
 fs.writeFileSync(path.join(outDir, 'index.json'), JSON.stringify(index, null, 2) + '\n');
 console.log(`\n${index.length} scores written to ${path.relative(root, outDir)}`);
-if (skipped.length) console.log(`Skipped (not public domain):\n  ${skipped.join('\n  ')}`);
+if (skipped.length) console.log(`Skipped (not public domain or credited):\n  ${skipped.join('\n  ')}`);
