@@ -48,11 +48,15 @@
 
 .auth-page { --green: #171917; min-height: 100vh; border: 8px solid var(--green); background: #efede6; }
 .auth-form-side { min-height: max(calc(100vh - 16px), 100%); position: relative; isolation: isolate; display: flex; flex-direction: column; padding: 30px 48px 24px; background: #efede6; }
-/* The real score behind the sign-in pages (ScoreBackdrop.tsx). --pw-score-ink is its
-   strength; --pw-score-clear keeps an oval behind the card free of notes. */
-.auth-page { --pw-score-ink: .15; --pw-score-clear: radial-gradient(ellipse 330px 380px at 50% 54%, transparent 55%, #000 100%); }
+/* The real score behind the home page's title (ScoreBackdrop.tsx). --pw-score-ink is
+   its strength; --pw-score-clear keeps an oval behind the title free of notes. */
+.home-hero { --pw-score-ink: .15; --pw-score-clear: radial-gradient(ellipse 520px 300px at 50% 50%, transparent 50%, #000 100%); }
 .score-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; opacity: var(--pw-score-ink); -webkit-mask-image: var(--pw-score-clear); mask-image: var(--pw-score-clear); }
 .auth-notes { position: absolute; inset: 0; overflow: hidden; pointer-events: none; color: var(--green); font-family: 'Libre Baskerville', Georgia, serif; }
+.auth-notes-secondary { inset: 2.5% 2%; display: grid; grid-template-columns: repeat(10, 1fr); grid-template-rows: repeat(4, 1fr); color: #252825; }
+.auth-notes.auth-notes-secondary span { position: relative; inset: auto; align-self: center; justify-self: center; font-size: 20px; transform: none; animation-duration: 7.25s; animation-direction: alternate-reverse; }
+.auth-notes.auth-notes-secondary span:nth-child(3n) { font-size: 27px; transform: rotate(-9deg); }
+.auth-notes.auth-notes-secondary span:nth-child(4n) { font-size: 23px; transform: rotate(11deg); }
 .auth-notes span { position: absolute; opacity: .04; line-height: 1; animation: note-drift 5.5s ease-in-out infinite; }
 .auth-notes span:nth-child(3n) { animation-name: note-drift-left; }
 .auth-notes span:nth-child(4n) { animation-name: note-drift-down; }
@@ -111,7 +115,7 @@
 @media (prefers-reduced-motion: reduce) {
   .auth-notes span { animation: none; opacity: .09; translate: none; }
 }
-.auth-brand { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; letter-spacing: -.4px; }
+.auth-brand { width: fit-content; text-decoration: none; display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; letter-spacing: -.4px; }
 .auth-card { width: 100%; max-width: 470px; position: relative; z-index: 2; margin: auto; padding: 42px 48px 44px; border: 2px solid var(--green); border-radius: 16px; background-color: #faf8f1; background-image: radial-gradient(circle at 18% 24%, #26332b0a 0 .6px, transparent .8px), radial-gradient(circle at 76% 68%, #8c795d0b 0 .5px, transparent .8px), linear-gradient(105deg, #fbfaf6 0%, #f5f2e9 48%, #fbfaf6 100%); background-size: 9px 11px, 13px 15px, 100% 100%; box-shadow: 0 14px 40px #34403914; }
 .auth-intro { text-align: center; }
 .auth-intro h1 { margin: 0; color: #232a25; font-family: 'Libre Baskerville', Georgia, serif; font-size: 34px; font-weight: 400; letter-spacing: -1px; }
@@ -128,7 +132,7 @@
 .auth-form input::placeholder { color: #a8ada8; }
 .auth-form input:focus { border-color: #343934; box-shadow: 0 0 0 3px #e7e9e7; }
 .password-label { justify-content: space-between; }
-.password-label button, .terms-row button { padding: 0; border: 0; background: none; color: #49735f; font-size: 9px; font-weight: 600; cursor: pointer; }
+.password-label button, .terms-row button, .terms-row a { padding: 0; border: 0; background: none; color: #49735f; font-size: 9px; font-weight: 600; cursor: pointer; }
 .password-field { position: relative; display: block !important; margin: 0 !important; }
 .password-field input { padding-right: 48px !important; }
 .password-field button { position: absolute; right: 11px; top: 0; height: 47px; border: 0; background: none; color: #65756b; font-size: 10px; font-weight: 600; cursor: pointer; }
@@ -170,6 +174,7 @@
 .auth-page .auth-back button,
 .auth-page .terms-row > span,
 .auth-page .terms-row button,
+.auth-page .terms-row a,
 .auth-page .demo-link,
 .auth-page .auth-footer {
   color: #14385f;
@@ -207,6 +212,7 @@
     margin-top: 0;
     translate: 0 34px;
     font-size: 17px;
+    justify-self: center;
   }
   .auth-card {
     max-width: 430px;
@@ -233,6 +239,7 @@
     gap: 12px;
   }
   .auth-footer span:first-of-type { margin-left: 0; }
+  .auth-notes-secondary { display: none; }
   .auth-notes span:nth-child(n+25) { display: none; }
   .auth-notes span { font-size: 22px !important; }
 }
@@ -256,3 +263,88 @@
 .auth-back { margin: 16px 0 0; text-align: center; font-size: 11px; }
 .auth-back button { padding: 0; border: 0; background: none; font-size: 11px; font-weight: 600; cursor: pointer; }
 .auth-back button:hover { text-decoration: underline; }
+
+/* Terms of Service and Privacy Policy (LegalPages.tsx): the sign-in frame, with a
+   cream reading card instead of the form. */
+.legal-side { min-height: calc(100vh - 16px); display: flex; flex-direction: column; gap: 28px; padding: 30px 48px 24px; background: #efede6; }
+.legal-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.legal-top a, .legal-footer a { color: #14385f; text-decoration: none; }
+.legal-top .auth-brand { color: #14385f; text-shadow: var(--pw-navy-shadow); }
+.legal-top nav a { font-size: 13px; font-weight: 600; }
+.legal-top nav a:hover, .legal-footer a:hover { text-decoration: underline; }
+.legal-card { width: 100%; max-width: 720px; margin: 0 auto; padding: 44px 56px 40px; border: 2px solid var(--pw-frame); border-radius: 16px; background-image: var(--pw-card-texture); background-size: var(--pw-card-texture-size); box-shadow: var(--pw-card-shadow); color: #2c332e; font-size: 15px; line-height: 1.65; }
+.legal-card h1 { margin: 0; color: #14385f; font-family: 'Libre Baskerville', Georgia, serif; font-size: 34px; font-weight: 400; letter-spacing: -1px; }
+.legal-updated { margin: 6px 0 22px; color: var(--pw-muted); font-size: 13px; }
+.legal-lead { font-size: 16px; color: #232a25; }
+.legal-card h2 { margin: 30px 0 8px; color: #14385f; font-family: 'Libre Baskerville', Georgia, serif; font-size: 20px; font-weight: 400; }
+.legal-card h3 { margin: 16px 0 4px; font-size: 15px; font-weight: 700; }
+.legal-card p { margin: 0 0 12px; }
+.legal-card ul { margin: 0 0 12px; padding-left: 20px; }
+.legal-card li { margin-bottom: 6px; }
+.legal-card a { color: #14385f; }
+.legal-footer { margin: 0 auto; color: #14385f; font-size: 12px; }
+@media (max-width: 700px) {
+  .legal-side { min-height: calc(100dvh - 10px); padding: 18px 16px 18px; gap: 18px; }
+  .legal-card { padding: 28px 20px 24px; font-size: 15px; }
+  .legal-card h1 { font-size: 28px; }
+  .legal-top .auth-brand { translate: none; }
+}
+
+/* Home page (HomePage.tsx): the sign-in frame and colours, a title over the
+   moving score, then the three steps with their drawings. */
+.home { min-height: 100vh; border: 8px solid var(--pw-frame); background: var(--pw-page); color: var(--pw-text); }
+.home a { color: inherit; text-decoration: none; }
+.home-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 26px 48px; }
+.home-brand { display: flex; align-items: center; gap: 10px; color: var(--pw-navy); text-shadow: var(--pw-navy-shadow); font-size: 18px; font-weight: 700; letter-spacing: -.4px; }
+.home-header nav { display: flex; align-items: center; gap: 26px; color: var(--pw-navy); font-size: 13px; font-weight: 600; }
+.home-header nav a:not(.home-header-cta):hover { text-decoration: underline; }
+.home-header-cta { height: 38px; padding: 0 16px; display: inline-flex; align-items: center; border-radius: 8px; background: var(--pw-frame); color: #fff !important; }
+.home-header-cta:hover { background: var(--pw-frame-hover); }
+
+.home-hero { position: relative; isolation: isolate; overflow: hidden; min-height: calc(100vh - 16px - 90px); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 24px 60px; text-align: center; }
+.home-hero h1 { margin: 0; color: var(--pw-navy); text-shadow: var(--pw-navy-shadow); font-family: 'Libre Baskerville', Georgia, serif; font-size: clamp(60px, 11vw, 128px); font-weight: 400; letter-spacing: -.04em; line-height: 1; }
+.home-steps-line { margin: 22px 0 34px; color: var(--pw-navy); font-size: clamp(17px, 2.2vw, 22px); font-weight: 600; letter-spacing: .02em; }
+.home-steps-line span { margin: 0 .5em; color: var(--pw-muted); }
+.home-cta { height: 52px; padding: 0 22px 0 26px; display: inline-flex; align-items: center; gap: 8px; border-radius: 10px; background: var(--pw-frame); color: #fff !important; box-shadow: 0 2px 6px #17191733; font-size: 15px; font-weight: 600; }
+.home-cta:hover { background: var(--pw-frame-hover); }
+.home-cta-note { margin: 12px 0 0; color: var(--pw-muted); font-size: 13px; }
+
+.home-steps { max-width: 1060px; margin: 0 auto; padding: 40px 48px 20px; display: grid; gap: 96px; scroll-margin-top: 20px; }
+.home-step { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: center; gap: 64px; }
+.home-step:nth-child(even) .home-step-text { order: 2; }
+.home-step-number { width: 30px; height: 30px; display: inline-grid; place-items: center; border: 2px solid var(--pw-frame); border-radius: 50%; color: var(--pw-frame); font-size: 13px; font-weight: 700; }
+.home-step h2 { margin: 14px 0 14px; color: var(--pw-navy); font-family: 'Libre Baskerville', Georgia, serif; font-size: 42px; font-weight: 400; letter-spacing: -1px; }
+.home-step p { max-width: 400px; margin: 0 0 12px; color: #4d544e; font-size: 16px; line-height: 1.65; }
+.home-figure { padding: 14px; border: 2px solid var(--pw-frame); border-radius: 16px; background-image: var(--pw-card-texture); background-size: var(--pw-card-texture-size); box-shadow: var(--pw-card-shadow); }
+.home-figure svg { display: block; width: 100%; height: auto; }
+.home-fade { transition: opacity .6s ease; }
+.home-slide { transition: opacity .5s ease, transform .5s ease; }
+.home-move { transform-box: view-box; transform-origin: 0 0; transition: transform 1s cubic-bezier(.65, 0, .35, 1); }
+
+.home-about { max-width: 640px; margin: 0 auto; padding: 110px 24px 90px; text-align: center; scroll-margin-top: 20px; }
+.home-about h2 { margin: 0 0 16px; color: var(--pw-navy); font-family: 'Libre Baskerville', Georgia, serif; font-size: 36px; font-weight: 400; letter-spacing: -1px; }
+.home-about p { margin: 0 0 30px; color: #4d544e; font-size: 16px; line-height: 1.7; }
+
+.home-footer { display: flex; align-items: center; gap: 18px; padding: 18px 48px 22px; color: var(--pw-navy); font-size: 12px; }
+.home-footer > span { margin-right: auto; }
+.home-footer a:hover { text-decoration: underline; }
+html { scroll-behavior: smooth; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .home-fade, .home-slide, .home-move { transition: none; }
+}
+@media (max-width: 800px) {
+  .home { border-width: 5px; }
+  .home-header { padding: 16px 16px; }
+  .home-header nav { gap: 16px; }
+  .home-nav-extra { display: none; }
+  .home-hero { min-height: calc(100dvh - 10px - 70px); --pw-score-clear: radial-gradient(ellipse 190px 150px at 50% 50%, transparent 45%, #000 100%); }
+  .home-steps { padding: 20px 16px; gap: 64px; }
+  .home-step { grid-template-columns: 1fr; gap: 24px; }
+  .home-step:nth-child(even) .home-step-text { order: 0; }
+  .home-step h2 { font-size: 34px; }
+  .home-about { padding: 72px 16px 64px; }
+  .home-footer { flex-wrap: wrap; justify-content: center; padding: 18px 16px; }
+  .home-footer > span { width: 100%; margin: 0; text-align: center; }
+}
